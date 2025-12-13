@@ -9,17 +9,21 @@ const app = express();
 // Middleware
 app.use(express.json());
 
-// Database connection with better error handling
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URL ||
+  "mongodb://localhost:27017/mall-ecommerce";
+
 mongoose
-  .connect(process.env.MONGODB_URI, {
+  .connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
   });
+
 // Routes
 app.use("/api/products", productRoutes);
 
@@ -29,6 +33,6 @@ app.get("/health", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
