@@ -104,6 +104,20 @@ const validateProduct = (req, res, next) => {
 // ROUTES
 // ========================================
 
+// const { auth, isVendor } = require("../middleware/auth");
+
+// Only vendors can create products
+// ========================================
+// 5. PROTECT PRODUCT ROUTES (routes/products.js - UPDATE)
+// ========================================
+// Add these imports to your existing products.js file:
+const { auth, isVendor, isAdmin } = require("../middleware/auth");
+
+// Then protect routes like this:
+// router.post('/', auth, isVendor, validateProduct, async (req, res) => { ... }
+// router.put('/:id', auth, isVendor, validateProduct, async (req, res) => { ... }
+// router.delete('/:id', auth, isAdmin, async (req, res) => { ... }
+
 // GET /api/products - Get all products with filtering and pagination
 router.get("/", async (req, res) => {
   try {
