@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
+const supportRoutes = require("./routes/support");
 
 const app = express();
 app.use(express.json());
@@ -17,13 +18,14 @@ const authRoutes = require("./routes/auth");
 // Routes
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/support", supportRoutes);
 
 // Middleware
 
 const MONGODB_URI =
   process.env.MONGODB_URI ||
   process.env.MONGO_URL ||
-  "mongodb://localhost:27017/mall-ecommerce";
+  "mongodb://mongo:PFunFtgHfjDjQAFpiSvtMIjNctaQOrtS@turntable.proxy.rlwy.net:10584";
 
 mongoose
   .connect(MONGODB_URI, {
