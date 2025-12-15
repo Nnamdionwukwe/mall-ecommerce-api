@@ -5,7 +5,7 @@ const supportSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // Allow non-logged-in users
+      required: false,
     },
     name: {
       type: String,
@@ -66,10 +66,7 @@ const supportSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster queries
 supportSchema.index({ email: 1, createdAt: -1 });
 supportSchema.index({ status: 1 });
 
-const Support = mongoose.model("Support", supportSchema);
-
-module.exports = Support;
+module.exports = mongoose.model("Support", supportSchema);
