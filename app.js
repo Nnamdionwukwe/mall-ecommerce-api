@@ -5,15 +5,24 @@ require("dotenv").config();
 const supportRoutes = require("./routes/support");
 
 const app = express();
-app.use(express.json());
-app.use(cors());
 
+// app.use(cors());
+// CORS Configuration - ADD THIS BEFORE OTHER MIDDLEWARE
+app.use(
+  cors({
+    origin: "*", // Allow all origins (for development)
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.use(express.json());
 // ========================================
 // 6. UPDATE APP.JS TO USE AUTH ROUTES
 // ========================================
 const productRoutes = require("./routes/products");
 const authRoutes = require("./routes/auth");
-// app.use("/routes/auth", authRoutes);
+app.use("/routes/auth", authRoutes);
 
 // Routes
 app.use("/api/products", productRoutes);
@@ -40,6 +49,16 @@ mongoose
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "OK", message: "Server is running" });
+});
+
+// 404 handler - ADD THIS
+app.use((req, res) => {
+  console.log("404 - Route not found:", req.method, req.path);
+  res.status(404).json({
+    error: "Route not found",
+    path: req.path,
+    method: req.method,
+  });
 });
 
 const PORT = process.env.PORT || 5000;
