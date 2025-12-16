@@ -201,7 +201,7 @@ router.get("/", async (req, res) => {
       search,
       isActive,
       page = 1,
-      limit = 1000,
+      limit = 10000,
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
