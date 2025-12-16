@@ -177,12 +177,12 @@ router.get("/", async (req, res) => {
     res.json({
       success: true,
       data: products,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum),
-      },
+      // pagination: {
+      //   page: pageNum,
+      //   limit: limitNum,
+      //   total,
+      //   totalPages: Math.ceil(total / limitNum),
+      // },
     });
   } catch (error) {
     console.error("Error fetching products:", error);
