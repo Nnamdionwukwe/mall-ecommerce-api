@@ -159,10 +159,10 @@ router.get("/", async (req, res) => {
       query.isActive = isActive === "true";
     }
 
-    // // Pagination
-    // const pageNum = parseInt(page);
-    // const limitNum = parseInt(limit);
-    // const skip = (pageNum - 1) * limitNum;
+    // Pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
     // Sort
     const sortOrder = order === "asc" ? 1 : -1;
@@ -177,12 +177,12 @@ router.get("/", async (req, res) => {
     res.json({
       success: true,
       data: products,
-      // pagination: {
-      //   page: pageNum,
-      //   limit: limitNum,
-      //   total,
-      //   totalPages: Math.ceil(total / limitNum),
-      // },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
   } catch (error) {
     console.error("Error fetching products:", error);
