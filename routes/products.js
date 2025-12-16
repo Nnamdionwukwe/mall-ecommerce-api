@@ -119,6 +119,78 @@ const { auth, isVendor, isAdmin } = require("../middleware/auth");
 // router.delete('/:id', auth, isAdmin, async (req, res) => { ... }
 
 // GET /api/products - Get all products with filtering and pagination
+// router.get("/", async (req, res) => {
+//   try {
+//     const {
+//       category,
+//       vendorId,
+//       minPrice,
+//       maxPrice,
+//       search,
+//       isActive,
+//       page = 1,
+//       limit = 10,
+//       sortBy = "createdAt",
+//       order = "desc",
+//     } = req.query;
+
+//     // Build query
+//     const query = {};
+
+//     if (category) {
+//       query.category = new RegExp(category, "i");
+//     }
+
+//     if (vendorId) {
+//       query.vendorId = vendorId;
+//     }
+
+//     if (minPrice || maxPrice) {
+//       query.price = {};
+//       if (minPrice) query.price.$gte = parseFloat(minPrice);
+//       if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+//     }
+
+//     if (search) {
+//       query.$text = { $search: search };
+//     }
+
+//     if (isActive !== undefined) {
+//       query.isActive = isActive === "true";
+//     }
+
+//     // Pagination
+//     const pageNum = parseInt(page);
+//     const limitNum = parseInt(limit);
+//     const skip = (pageNum - 1) * limitNum;
+
+//     // Sort
+//     const sortOrder = order === "asc" ? 1 : -1;
+//     const sortObj = { [sortBy]: sortOrder };
+
+//     // Execute query
+//     const [products, total] = await Promise.all([
+//       Product.find(query).sort(sortObj).skip(skip).lean(),
+//       Product.countDocuments(query),
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data: products,
+//       pagination: {
+//         page: pageNum,
+//         limit: limitNum,
+//         total,
+//         totalPages: Math.ceil(total / limitNum),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching products:", error);
+//     res.status(500).json({ error: "Server error", message: error.message });
+//   }
+// });
+
+// GET /api/products - Get all products with filtering and pagination
 router.get("/", async (req, res) => {
   try {
     const {
@@ -136,25 +208,20 @@ router.get("/", async (req, res) => {
 
     // Build query
     const query = {};
-
     if (category) {
       query.category = new RegExp(category, "i");
     }
-
     if (vendorId) {
       query.vendorId = vendorId;
     }
-
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = parseFloat(minPrice);
       if (maxPrice) query.price.$lte = parseFloat(maxPrice);
     }
-
     if (search) {
       query.$text = { $search: search };
     }
-
     if (isActive !== undefined) {
       query.isActive = isActive === "true";
     }
@@ -168,9 +235,13 @@ router.get("/", async (req, res) => {
     const sortOrder = order === "asc" ? 1 : -1;
     const sortObj = { [sortBy]: sortOrder };
 
-    // Execute query
+    // Execute query with limit and skip
     const [products, total] = await Promise.all([
-      Product.find(query).sort(sortObj).skip(skip).lean(),
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limitNum) // ADD THIS LINE
+        .lean(),
       Product.countDocuments(query),
     ]);
 
