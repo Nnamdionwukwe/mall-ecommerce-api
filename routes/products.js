@@ -128,7 +128,7 @@ router.get("/", async (req, res) => {
       maxPrice,
       search,
       isActive,
-      // page = 1,
+      page = 1,
       // limit = 10,
       sortBy = "createdAt",
       order = "desc",
