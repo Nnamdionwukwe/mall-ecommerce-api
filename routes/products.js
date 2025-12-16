@@ -129,7 +129,7 @@ router.get("/", async (req, res) => {
       search,
       isActive,
       page = 1,
-      // limit = 10,
+      limit = 10,
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
