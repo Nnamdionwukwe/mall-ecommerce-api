@@ -76,7 +76,7 @@ router.post("/initiate-payment", auth, async (req, res) => {
 });
 
 // Verify payment and create order
-router.post("/api/checkout/verify-payment", auth, async (req, res) => {
+router.post("/api/checkout/verify-payment", async (req, res) => {
   try {
     const {
       reference,
@@ -210,24 +210,6 @@ router.post("/api/checkout/verify-payment", auth, async (req, res) => {
       success: false,
       message: "Error creating order",
       error: error.message,
-    });
-  }
-});
-
-router.post("/api/checkout/verify-payment", async (req, res) => {
-  try {
-    console.log("Payment verification request:", req.body);
-
-    // Your verification logic here
-
-    res.json({ success: true, data: order });
-  } catch (error) {
-    console.error("DETAILED ERROR:", error.message);
-    console.error("ERROR STACK:", error.stack);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      details: error.stack,
     });
   }
 });
