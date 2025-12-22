@@ -2,8 +2,17 @@ const express = require("express");
 const Order = require("../models/Order.js");
 const { auth, isAdmin, isVendor } = require("../middleware/auth");
 const axios = require("axios");
+// const mongoose = require("mongoose");
 
 const router = express.Router();
+// mongoose
+//   .connect(
+//     "mongodb://mongo:PFunFtgHfjDjQAFpiSvtMIjNctaQOrtS@turntable.proxy.rlwy.net:10584/your-db-name"
+//   )
+//   .then(() => console.log("✅ MongoDB connected"))
+//   .catch((err) => {
+//     console.error("❌ MongoDB connection error:", err);
+//   });
 
 const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
@@ -182,7 +191,7 @@ router.post("/verify-payment", auth, async (req, res) => {
     await order.save();
 
     // Clear user's cart
-    await Cart.deleteMany({ userId });
+    // await Cart.deleteMany({ userId });
 
     res.status(201).json({
       success: true,

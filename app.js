@@ -2,17 +2,21 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
-const supportRoutes = require("./routes/support");
-const checkoutRoutes = require("./routes/checkout");
 
 const app = express();
 
-// app.use(cors());
-// CORS Configuration - ADD THIS BEFORE OTHER MIDDLEWARE
+app.use(cors());
+
+// CORS Configuration - Add this BEFORE your routes
 app.use(
   cors({
-    origin: "*", // Allow all origins (for development)
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://mall-ecommerce-frontend2.vercel.app/", // Add your production domain
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -23,13 +27,16 @@ app.use(express.json());
 // ========================================
 const productRoutes = require("./routes/products");
 const authRoutes = require("./routes/auth");
-app.use("/routes/auth", authRoutes);
+
+const supportRoutes = require("./routes/support");
+const checkoutRoutes = require("./routes/checkout");
 
 // Routes
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/checkout", checkoutRoutes);
+app.use("/routes/auth", authRoutes);
 
 // Middleware
 
