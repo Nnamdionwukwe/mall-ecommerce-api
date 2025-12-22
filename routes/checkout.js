@@ -5,6 +5,8 @@ const axios = require("axios");
 
 const router = express.Router();
 
+const paystackKey = process.env.PAYSTACK_SECRET_KEY;
+
 // Initialize Paystack payment
 router.post("/initiate-payment", auth, async (req, res) => {
   try {
