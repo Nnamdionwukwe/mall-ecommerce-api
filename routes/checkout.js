@@ -1,8 +1,5 @@
 const express = require("express");
 const Order = require("../models/Order.js");
-// const { verifyToken } = require("../middleware/auth");
-// const verifyToken = require("../middleware/auth");
-const { verifyToken } = require("../middleware/auth");
 const { auth, isAdmin, isVendor } = require("../middleware/auth");
 const axios = require("axios");
 
