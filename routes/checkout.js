@@ -68,7 +68,7 @@ router.post("/initiate-payment", auth, async (req, res) => {
 });
 
 // Verify payment and create order
-router.post("/orders/verify-payment", auth, async (req, res) => {
+router.post("/api/orders/verify-payment", auth, async (req, res) => {
   try {
     const {
       reference,
