@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const supportRoutes = require("./routes/support");
-import checkoutRoutes from "./routes/checkout.js";
+const checkoutRoutes = require("./routes/checkout");
 
 const app = express();
 

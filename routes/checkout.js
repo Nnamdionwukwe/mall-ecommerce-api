@@ -1,8 +1,7 @@
-import express from "express";
-import Order from "../models/Order.js";
-import Cart from "../models/Cart.js";
-import { verifyToken } from "../middleware/auth.js";
-import axios from "axios";
+const express = require("express");
+const Order = require("../models/Order.js");
+const { verifyToken } = require("../middleware/auth");
+const axios = require("axios");
 
 const router = express.Router();
 
@@ -567,4 +566,4 @@ router.get("/admin/stats", verifyToken, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
