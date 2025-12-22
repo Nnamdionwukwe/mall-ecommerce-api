@@ -5,14 +5,6 @@ const axios = require("axios");
 // const mongoose = require("mongoose");
 
 const router = express.Router();
-// mongoose
-//   .connect(
-//     "mongodb://mongo:PFunFtgHfjDjQAFpiSvtMIjNctaQOrtS@turntable.proxy.rlwy.net:10584/your-db-name"
-//   )
-//   .then(() => console.log("✅ MongoDB connected"))
-//   .catch((err) => {
-//     console.error("❌ MongoDB connection error:", err);
-//   });
 
 const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
@@ -76,7 +68,7 @@ router.post("/initiate-payment", auth, async (req, res) => {
 });
 
 // Verify payment and create order
-router.post("/api/checkout/verify-payment", async (req, res) => {
+router.post("/orders/verify-payment", auth, async (req, res) => {
   try {
     const {
       reference,
