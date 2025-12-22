@@ -3,6 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const supportRoutes = require("./routes/support");
+import checkoutRoutes from "./routes/checkout.js";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/routes/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/checkout", checkoutRoutes);
 
 // Middleware
 
