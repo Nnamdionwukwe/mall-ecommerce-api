@@ -1,12 +1,15 @@
 const express = require("express");
 const Order = require("../models/Order.js");
+// const { verifyToken } = require("../middleware/auth");
+// const verifyToken = require("../middleware/auth");
 const { verifyToken } = require("../middleware/auth");
+const { auth, isAdmin, isVendor } = require("../middleware/auth");
 const axios = require("axios");
 
 const router = express.Router();
 
 // Initialize Paystack payment
-router.post("/initiate-payment", verifyToken, async (req, res) => {
+router.post("/initiate-payment", auth, async (req, res) => {
   try {
     const { email, amount, reference, metadata } = req.body;
     const userId = req.user.id;
@@ -65,7 +68,7 @@ router.post("/initiate-payment", verifyToken, async (req, res) => {
 });
 
 // Verify payment and create order
-router.post("/verify-payment", verifyToken, async (req, res) => {
+router.post("/verify-payment", auth, async (req, res) => {
   try {
     const {
       reference,
@@ -204,7 +207,7 @@ router.post("/verify-payment", verifyToken, async (req, res) => {
 });
 
 // Get order by ID
-router.get("/:orderId", verifyToken, async (req, res) => {
+router.get("/:orderId", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const userId = req.user.id;
@@ -242,7 +245,7 @@ router.get("/:orderId", verifyToken, async (req, res) => {
 });
 
 // Get user's orders
-router.get("/user/orders", verifyToken, async (req, res) => {
+router.get("/user/orders", auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { page = 1, limit = 10, status } = req.query;
@@ -281,7 +284,7 @@ router.get("/user/orders", verifyToken, async (req, res) => {
 });
 
 // Get user's order statistics
-router.get("/user/stats", verifyToken, async (req, res) => {
+router.get("/user/stats", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -303,7 +306,7 @@ router.get("/user/stats", verifyToken, async (req, res) => {
 });
 
 // Add note to order (admin only)
-router.post("/:orderId/notes", verifyToken, async (req, res) => {
+router.post("/:orderId/notes", isAdmin, async (req, res) => {
   try {
     // Check if user is admin
     if (req.user.role !== "admin") {
@@ -351,7 +354,7 @@ router.post("/:orderId/notes", verifyToken, async (req, res) => {
 });
 
 // Update order status (admin only)
-router.patch("/:orderId/status", verifyToken, async (req, res) => {
+router.patch("/:orderId/status", isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
@@ -407,7 +410,7 @@ router.patch("/:orderId/status", verifyToken, async (req, res) => {
 });
 
 // Update delivery information (admin only)
-router.patch("/:orderId/delivery", verifyToken, async (req, res) => {
+router.patch("/:orderId/delivery", isAdmin, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -454,7 +457,7 @@ router.patch("/:orderId/delivery", verifyToken, async (req, res) => {
 });
 
 // Cancel order (user)
-router.post("/:orderId/cancel", verifyToken, async (req, res) => {
+router.post("/:orderId/cancel", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
@@ -499,7 +502,7 @@ router.post("/:orderId/cancel", verifyToken, async (req, res) => {
 });
 
 // Find orders by status (admin)
-router.get("/filter/status/:status", verifyToken, async (req, res) => {
+router.get("/filter/status/:status", isAdmin, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -540,7 +543,7 @@ router.get("/filter/status/:status", verifyToken, async (req, res) => {
 });
 
 // Get all order statistics (admin)
-router.get("/admin/stats", verifyToken, async (req, res) => {
+router.get("/admin/stats", isAdmin, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({
