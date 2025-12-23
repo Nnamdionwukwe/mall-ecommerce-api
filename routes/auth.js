@@ -1,6 +1,3 @@
-// ========================================
-// 4. AUTH ROUTES (routes/auth.js)
-// ========================================
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
@@ -93,8 +90,6 @@ router.post(
     }
   }
 );
-
-//ggt
 
 // ========================================
 // LOGIN - POST /api/auth/login
@@ -238,7 +233,6 @@ router.put(
         currentPassword,
         user.password
       );
-
       if (!isPasswordValid) {
         return res.status(401).json({ error: "Current password is incorrect" });
       }

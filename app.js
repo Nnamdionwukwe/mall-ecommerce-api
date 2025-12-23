@@ -2,13 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
-
 const app = express();
 
 // ================================================
 // CORS CONFIGURATION
 // ================================================
-
 app.use(
   cors({
     origin: [
@@ -22,13 +20,67 @@ app.use(
   })
 );
 
+// ================================================
+// DEBUG: Check all routes before using them
+// ================================================
+console.log("\n🔍 DEBUGGING ROUTES...\n");
+
+try {
+  const authRoutes = require("./routes/auth");
+  console.log("✅ authRoutes type:", typeof authRoutes);
+  console.log("   authRoutes:", authRoutes);
+} catch (e) {
+  console.error("❌ Error loading authRoutes:", e.message);
+}
+
+try {
+  const productRoutes = require("./routes/products");
+  console.log("✅ productRoutes type:", typeof productRoutes);
+  console.log("   productRoutes:", productRoutes);
+} catch (e) {
+  console.error("❌ Error loading productRoutes:", e.message);
+}
+
+try {
+  const cartRoutes = require("./routes/cart");
+  console.log("✅ cartRoutes type:", typeof cartRoutes);
+  console.log("   cartRoutes:", cartRoutes);
+} catch (e) {
+  console.error("❌ Error loading cartRoutes:", e.message);
+}
+
+try {
+  const orderRoutes = require("./routes/orders");
+  console.log("✅ orderRoutes type:", typeof orderRoutes);
+  console.log("   orderRoutes:", orderRoutes);
+} catch (e) {
+  console.error("❌ Error loading orderRoutes:", e.message);
+}
+
+try {
+  const supportRoutes = require("./routes/support");
+  console.log("✅ supportRoutes type:", typeof supportRoutes);
+  console.log("   supportRoutes:", supportRoutes);
+} catch (e) {
+  console.error("❌ Error loading supportRoutes:", e.message);
+}
+
+try {
+  const checkoutRoutes = require("./routes/checkout");
+  console.log("✅ checkoutRoutes type:", typeof checkoutRoutes);
+  console.log("   checkoutRoutes:", checkoutRoutes);
+} catch (e) {
+  console.error("❌ Error loading checkoutRoutes:", e.message);
+}
+
+console.log("\n🔍 END DEBUG\n");
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================================================
 // ROUTES IMPORT
 // ================================================
-
 const authRoutes = require("./routes/auth");
 const productRoutes = require("./routes/products");
 const cartRoutes = require("./routes/cart");
@@ -39,8 +91,7 @@ const checkoutRoutes = require("./routes/checkout");
 // ================================================
 // ROUTE SETUP
 // ================================================
-
-app.use("/api/auth", authRoutes); // ✅ FIXED: /api/auth NOT /routes/auth
+app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
@@ -50,9 +101,7 @@ app.use("/api/checkout", checkoutRoutes);
 // ================================================
 // DATABASE CONNECTION
 // ================================================
-
 const MONGODB_URI = process.env.MONGODB_URI;
-
 mongoose
   .connect(MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -61,7 +110,6 @@ mongoose
 // ================================================
 // HEALTH CHECK
 // ================================================
-
 app.get("/health", (req, res) => {
   res.json({
     status: "OK",
@@ -73,7 +121,6 @@ app.get("/health", (req, res) => {
 // ================================================
 // ROUTES LIST (FOR DEBUGGING)
 // ================================================
-
 app.get("/api/routes", (req, res) => {
   const routes = [
     // Auth
@@ -83,28 +130,24 @@ app.get("/api/routes", (req, res) => {
     "PATCH /api/auth/profile",
     "POST /api/auth/change-password",
     "POST /api/auth/logout",
-
     // Products
     "GET /api/products",
     "GET /api/products/:id",
     "POST /api/products",
     "PUT /api/products/:id",
     "DELETE /api/products/:id",
-
     // Cart
     "GET /api/cart",
     "POST /api/cart/add",
     "DELETE /api/cart/remove/:productId",
     "PATCH /api/cart/update/:productId",
     "DELETE /api/cart/clear",
-
     // Orders
     "POST /api/orders/verify-payment",
     "GET /api/orders",
     "GET /api/orders/:orderId",
     "POST /api/orders/:orderId/cancel",
   ];
-
   res.json({
     success: true,
     message: "Available API routes",
@@ -116,7 +159,6 @@ app.get("/api/routes", (req, res) => {
 // ================================================
 // 404 HANDLER
 // ================================================
-
 app.use((req, res) => {
   console.log("❌ 404 - Route not found:", req.method, req.path);
   res.status(404).json({
@@ -131,7 +173,6 @@ app.use((req, res) => {
 // ================================================
 // ERROR HANDLER
 // ================================================
-
 app.use((error, req, res, next) => {
   console.error("❌ Error:", error.message);
   res.status(error.status || 500).json({
@@ -143,9 +184,7 @@ app.use((error, req, res, next) => {
 // ================================================
 // SERVER START
 // ================================================
-
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, "0.0.0.0", () => {
   console.log("\n========================================");
   console.log(`🚀 Server running on port ${PORT}`);
