@@ -6,6 +6,19 @@ const axios = require("axios");
 
 const router = express.Router();
 
+console.log("🔍 PAYSTACK CONFIGURATION CHECK:");
+console.log("PAYSTACK_SECRET_KEY exists:", !!process.env.PAYSTACK_SECRET_KEY);
+console.log("PAYSTACK_SECRET_KEY value:", process.env.PAYSTACK_SECRET_KEY);
+console.log(
+  "PAYSTACK_SECRET_KEY length:",
+  process.env.PAYSTACK_SECRET_KEY?.length
+);
+console.log(
+  "Starts with 'sk_':",
+  process.env.PAYSTACK_SECRET_KEY?.startsWith("sk_")
+);
+console.log("---");
+
 // ================================================
 // MIDDLEWARE
 // ================================================
@@ -68,6 +81,8 @@ const validateOrderData = (req, res, next) => {
 // POST /verify-payment - Verify payment and create order
 // 🔑 FIXED: Changed from "/orders/verify-payment" to "/verify-payment"
 // When mounted at app.use("/api/orders", orderRoutes), this becomes /api/orders/verify-payment
+//
+
 router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   try {
     const {
@@ -89,19 +104,47 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     console.log("Order ID:", orderId);
     console.log("User ID:", userId);
 
+    // ✅ DEBUG: Check Paystack key before making request
+    console.log("\n🔐 PAYSTACK KEY CHECK:");
+    const paystackKey = process.env.PAYSTACK_SECRET_KEY;
+
+    if (!paystackKey) {
+      console.error("❌ FATAL: PAYSTACK_SECRET_KEY is not set!");
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error: Paystack key not found",
+        error: "PAYSTACK_SECRET_KEY is not set in environment variables",
+      });
+    }
+
+    console.log("✅ Paystack key found");
+    console.log("Key length:", paystackKey.length);
+    console.log("Key starts with:", paystackKey.substring(0, 8) + "...");
+    console.log("Full key:", paystackKey);
+
     // Verify with Paystack
-    console.log("🔄 Verifying payment with Paystack...");
+    console.log("\n🔄 Verifying payment with Paystack...");
+    console.log(
+      "API URL: https://api.paystack.co/transaction/verify/" + reference
+    );
+    console.log(
+      "Authorization Header: Bearer " + paystackKey.substring(0, 8) + "..."
+    );
 
     const verificationResponse = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${paystackKey}`,
         },
       }
     );
 
-    console.log("Paystack Response Status:", verificationResponse.data.status);
+    console.log(
+      "✅ Paystack Response Status:",
+      verificationResponse.data.status
+    );
+    console.log("Response data:", verificationResponse.data);
 
     if (!verificationResponse.data.status) {
       console.log("❌ Paystack verification failed");
@@ -210,11 +253,20 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     });
   } catch (error) {
     console.error("=== ORDER CREATION ERROR ===");
+    console.error("Error Name:", error.name);
     console.error("Error Message:", error.message);
-    console.error("Error Stack:", error.stack);
+    console.error("Error Code:", error.code);
 
-    if (error.response?.status) {
-      console.error("Paystack API Error:", error.response.data);
+    // ✅ IMPROVED: Better error logging for Paystack errors
+    if (error.response) {
+      console.error("Paystack API Error Status:", error.response.status);
+      console.error("Paystack API Error Data:", error.response.data);
+
+      // Check for specific Paystack errors
+      if (error.response.status === 401) {
+        console.error("❌ 401 Unauthorized - Check your PAYSTACK_SECRET_KEY");
+        console.error("Is the key valid? Does it start with 'sk_'?");
+      }
     }
 
     if (error.name === "ValidationError") {
@@ -229,11 +281,13 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       });
     }
 
+    // Return detailed error for debugging
     res.status(500).json({
       success: false,
       message: "Error creating order",
       error: error.message,
       errorType: error.name,
+      paystackError: error.response?.data || null,
     });
   }
 });
