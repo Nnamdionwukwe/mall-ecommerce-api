@@ -152,54 +152,142 @@ router.post("/register", async (req, res) => {
 // ========================================
 // LOGIN - POST /api/auth/login
 // ========================================
-router.post(
-  "/login",
-  [
-    body("email")
-      .isEmail()
-      .normalizeEmail()
-      .withMessage("Please enter a valid email"),
-    body("password").notEmpty().withMessage("Password is required"),
-  ],
-  async (req, res) => {
-    try {
-      // Validate input
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
+// router.post(
+//   "/login",
+//   [
+//     body("email")
+//       .isEmail()
+//       .normalizeEmail()
+//       .withMessage("Please enter a valid email"),
+//     body("password").notEmpty().withMessage("Password is required"),
+//   ],
+//   async (req, res) => {
+//     try {
+//       // Validate input
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         return res.status(400).json({ errors: errors.array() });
+//       }
 
-      const { email, password } = req.body;
+//       const { email, password } = req.body;
 
-      // Find user
-      const user = await User.findOne({ email, isActive: true });
-      if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
+//       // Find user
+//       const user = await User.findOne({ email, isActive: true });
+//       if (!user) {
+//         return res.status(401).json({ error: "Invalid email or password" });
+//       }
 
-      // Check password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
+//       // Check password
+//       const isPasswordValid = await bcrypt.compare(password, user.password);
+//       if (!isPasswordValid) {
+//         return res.status(401).json({ error: "Invalid email or password" });
+//       }
 
-      // Generate token
-      const token = generateToken(user._id);
+//       // Generate token
+//       const token = generateToken(user._id);
 
-      res.json({
-        success: true,
-        message: "Login successful",
-        data: {
-          user: user.toJSON(),
-          token,
-        },
+//       res.json({
+//         success: true,
+//         message: "Login successful",
+//         data: {
+//           user: user.toJSON(),
+//           token,
+//         },
+//       });
+//     } catch (error) {
+//       console.error("Login error:", error);
+//       res.status(500).json({ error: "Server error", message: error.message });
+//     }
+//   }
+// );
+
+// Add this LOGIN route to your routes/auth.js
+
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    console.log("🔐 Login attempt for email:", email);
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide email and password",
       });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Server error", message: error.message });
     }
+
+    // Check for user and explicitly select password
+    console.log("🔍 Looking for user...");
+    const user = await User.findOne({ email }).select("+password");
+
+    console.log("👤 User found:", user ? "Yes" : "No");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated",
+      });
+    }
+
+    // Compare password
+    console.log("🔑 Comparing passwords...");
+    console.log(
+      "⚠️ Checking if matchPassword method exists:",
+      typeof user.matchPassword
+    );
+
+    let isPasswordCorrect;
+
+    // Check if matchPassword method exists
+    if (typeof user.matchPassword === "function") {
+      isPasswordCorrect = await user.matchPassword(password);
+      console.log("✅ Using matchPassword method");
+    } else {
+      // Fallback: use bcrypt directly
+      const bcrypt = require("bcryptjs");
+      isPasswordCorrect = await bcrypt.compare(password, user.password);
+      console.log("⚠️ Using bcrypt fallback (matchPassword not found)");
+    }
+
+    console.log("🔐 Password correct:", isPasswordCorrect);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    console.error("❌ Login error:", error);
+    console.error("📋 Error message:", error.message);
+    console.error("📋 Error stack:", error.stack);
+
+    res.status(500).json({
+      success: false,
+      message: "Error logging in",
+      error: error.message,
+    });
   }
-);
+});
 
 // ========================================
 // GET PROFILE - GET /api/auth/me
