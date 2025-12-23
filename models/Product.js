@@ -58,30 +58,20 @@ productSchema.index({ category: 1, price: 1 });
 productSchema.index({ name: "text", description: "text" });
 
 // ================================================
-// PRE-SAVE HOOK - ONLY ONE, PROPERLY FORMATTED
+// PRE-SAVE HOOK - SIMPLE AND CLEAN
 // ================================================
 
-productSchema.pre("save", async function (next) {
-  try {
-    console.log(`🔄 [Pre-save hook] Running for product: ${this.name}`);
-
-    // Trim whitespace from name and description
-    if (this.name) {
-      this.name = this.name.trim();
-    }
-    if (this.description) {
-      this.description = this.description.trim();
-    }
-
-    console.log(`✅ [Pre-save hook] Validation complete for ${this.name}`);
-
-    // ✅ CRITICAL: Always call next() at the end
-    next();
-  } catch (error) {
-    console.error(`❌ [Pre-save hook] Error: ${error.message}`);
-    // ✅ Pass errors to next()
-    next(error);
+productSchema.pre("save", function (next) {
+  // Trim whitespace from name and description
+  if (this.name) {
+    this.name = this.name.trim();
   }
+  if (this.description) {
+    this.description = this.description.trim();
+  }
+
+  // Call next() to continue
+  next();
 });
 
 // ================================================
