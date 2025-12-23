@@ -30,7 +30,7 @@ const authRoutes = require("./routes/auth");
 
 const supportRoutes = require("./routes/support");
 const checkoutRoutes = require("./routes/checkout");
-// const orderRoutes = require("./routes/orders");
+const orderRoutes = require("./routes/orders");
 const cartRoutes = require("./routes/cart");
 
 // Routes
@@ -39,7 +39,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/routes/auth", authRoutes);
-// app.use("/api/orders", orderRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
 
 // Middleware
