@@ -8,7 +8,6 @@ const router = express.Router();
 
 console.log("🔍 PAYSTACK CONFIGURATION CHECK:");
 console.log("PAYSTACK_SECRET_KEY exists:", !!process.env.PAYSTACK_SECRET_KEY);
-console.log("PAYSTACK_SECRET_KEY value:", process.env.PAYSTACK_SECRET_KEY);
 console.log(
   "PAYSTACK_SECRET_KEY length:",
   process.env.PAYSTACK_SECRET_KEY?.length
@@ -17,15 +16,17 @@ console.log(
   "Starts with 'sk_':",
   process.env.PAYSTACK_SECRET_KEY?.startsWith("sk_")
 );
-console.log("---");
+console.log("---\n");
 
 // ================================================
-// MIDDLEWARE
+// MIDDLEWARE DEFINITIONS - BEFORE ROUTES
 // ================================================
 
-// ✅ FIXED: Validate order data
+// ✅ Define validateOrderData BEFORE using it
 const validateOrderData = (req, res, next) => {
   try {
+    console.log("\n🔍 [validateOrderData] Middleware called");
+
     const {
       reference,
       orderId,
@@ -99,12 +100,13 @@ const validateOrderData = (req, res, next) => {
     }
 
     console.log("✅ All order data validated successfully");
+    console.log("🔍 [validateOrderData] Calling next()...\n");
 
-    // ✅ CRITICAL: Call next() to continue to route handler
-    next();
+    // ✅ CRITICAL: Call next()
+    return next();
   } catch (error) {
-    console.error("❌ Validation middleware error:", error);
-    res.status(500).json({
+    console.error("❌ [validateOrderData] Error:", error.message);
+    return res.status(500).json({
       success: false,
       error: "Validation error: " + error.message,
     });
@@ -115,9 +117,11 @@ const validateOrderData = (req, res, next) => {
 // ROUTES
 // ================================================
 
-// POST /verify-payment - Verify payment and create order
+// POST /verify-payment
 router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   try {
+    console.log("\n🔍 [verify-payment] Route handler started");
+
     const {
       reference,
       orderId,
@@ -137,8 +141,6 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     console.log("Order ID:", orderId);
     console.log("User ID:", userId);
 
-    // ✅ DEBUG: Check Paystack key before making request
-    console.log("\n🔐 PAYSTACK KEY CHECK:");
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
     if (!paystackKey) {
@@ -151,14 +153,7 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     }
 
     console.log("✅ Paystack key found");
-    console.log("Key length:", paystackKey.length);
-    console.log("Key starts with:", paystackKey.substring(0, 8) + "...");
-
-    // Verify with Paystack
     console.log("\n🔄 Verifying payment with Paystack...");
-    console.log(
-      "API URL: https://api.paystack.co/transaction/verify/" + reference
-    );
 
     const verificationResponse = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -216,7 +211,6 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
         });
       }
 
-      // Decrease product stock
       await product.decreaseStock(item.quantity);
     }
 
@@ -261,14 +255,13 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       status: "processing",
     });
 
-    // Save order to database
     const savedOrder = await order.save();
 
     console.log("✅ Order saved successfully!");
     console.log("Order ID in DB:", savedOrder._id);
-    console.log("=== PAYMENT VERIFICATION COMPLETE ===");
+    console.log("=== PAYMENT VERIFICATION COMPLETE ===\n");
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Payment verified and order created successfully",
       data: {
@@ -282,23 +275,19 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("\n=== ORDER CREATION ERROR ===");
+    console.error("\n========================================");
+    console.error("❌ ORDER CREATION ERROR");
+    console.error("========================================");
     console.error("Error Name:", error.name);
     console.error("Error Message:", error.message);
-    console.error("Error Code:", error.code);
+    console.error("Stack:", error.stack);
 
     if (error.response) {
-      console.error("Paystack API Error Status:", error.response.status);
-      console.error("Paystack API Error Data:", error.response.data);
-
-      if (error.response.status === 401) {
-        console.error("❌ 401 Unauthorized - Check your PAYSTACK_SECRET_KEY");
-        console.error("Is the key valid? Does it start with 'sk_'?");
-      }
+      console.error("Paystack API Error:", error.response.data);
     }
 
     if (error.name === "ValidationError") {
-      console.error("MongoDB Validation Error:", error.errors);
+      console.error("MongoDB Validation Errors:", error.errors);
       return res.status(400).json({
         success: false,
         message: "Invalid order data",
@@ -309,12 +298,13 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       });
     }
 
-    res.status(500).json({
+    console.error("========================================\n");
+
+    return res.status(500).json({
       success: false,
       message: "Error creating order",
       error: error.message,
       errorType: error.name,
-      paystackError: error.response?.data || null,
     });
   }
 });
@@ -339,7 +329,7 @@ router.get("/", auth, async (req, res) => {
 
     const total = await Order.countDocuments(query);
 
-    res.json({
+    return res.json({
       success: true,
       data: orders,
       pagination: {
@@ -351,7 +341,7 @@ router.get("/", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching orders",
       error: error.message,
@@ -381,7 +371,7 @@ router.get("/:orderId", auth, async (req, res) => {
 
     const daysLeft = order.daysUntilDelivery?.() || null;
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...order.toObject(),
@@ -390,7 +380,7 @@ router.get("/:orderId", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching order:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching order",
       error: error.message,
@@ -420,16 +410,18 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
       });
     }
 
-    await order.addNote?.(message, adminId);
+    if (order.addNote) {
+      await order.addNote(message, adminId);
+    }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Note added successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error adding note:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error adding note",
       error: error.message,
@@ -470,14 +462,14 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Order status updated successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error updating order status:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error updating order status",
       error: error.message,
@@ -512,14 +504,14 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Delivery information updated successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error updating delivery info:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error updating delivery information",
       error: error.message,
@@ -542,7 +534,7 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
       });
     }
 
-    if (!order.canBeCancelled?.()) {
+    if (order.canBeCancelled && !order.canBeCancelled()) {
       return res.status(400).json({
         success: false,
         message: "This order cannot be cancelled",
@@ -563,14 +555,14 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
       }
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: "Order cancelled successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error cancelling order:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error cancelling order",
       error: error.message,
@@ -584,17 +576,15 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
     const { status } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
-    const orders =
-      (await Order.findByStatus?.(status)) ||
-      (await Order.find({ status })
-        .skip((page - 1) * limit)
-        .limit(limit * 1)
-        .populate("items.productId")
-        .populate("userId", "name email"));
+    const orders = await Order.find({ status })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate("items.productId")
+      .populate("userId", "name email");
 
     const total = await Order.countDocuments({ status });
 
-    res.json({
+    return res.json({
       success: true,
       data: orders,
       pagination: {
@@ -606,7 +596,7 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Error filtering orders:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error filtering orders",
       error: error.message,
@@ -622,14 +612,14 @@ router.get("/stats/admin", auth, isAdmin, async (req, res) => {
       totalRevenue: 0,
     };
 
-    res.json({
+    return res.json({
       success: true,
       message: "All order statistics",
       data: stats,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching statistics",
       error: error.message,
@@ -647,14 +637,14 @@ router.get("/stats/user", auth, async (req, res) => {
       totalSpent: 0,
     };
 
-    res.json({
+    return res.json({
       success: true,
       message: "User order statistics",
       data: stats,
     });
   } catch (error) {
     console.error("Error fetching user stats:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error fetching user statistics",
       error: error.message,
@@ -663,7 +653,7 @@ router.get("/stats/user", auth, async (req, res) => {
 });
 
 // ================================================
-// EXPORT - ONLY EXPORT THE ROUTER
+// EXPORT
 // ================================================
 
 module.exports = router;
