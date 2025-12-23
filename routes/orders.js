@@ -24,55 +24,144 @@ console.log("---");
 // ================================================
 
 // Validate order data
+// const validateOrderData = (req, res, next) => {
+//   const {
+//     reference,
+//     orderId,
+//     shippingInfo,
+//     items,
+//     subtotal,
+//     shipping,
+//     tax,
+//     total,
+//   } = req.body;
+
+//   if (!reference) {
+//     return res.status(400).json({ error: "Payment reference is required" });
+//   }
+
+//   if (!orderId) {
+//     return res.status(400).json({ error: "Order ID is required" });
+//   }
+
+//   if (!items || items.length === 0) {
+//     return res.status(400).json({ error: "Cart is empty" });
+//   }
+
+//   if (!shippingInfo) {
+//     return res.status(400).json({ error: "Shipping information is required" });
+//   }
+
+//   const { fullName, email, phone, address, city, state, zipCode } =
+//     shippingInfo;
+
+//   if (
+//     !fullName ||
+//     !email ||
+//     !phone ||
+//     !address ||
+//     !city ||
+//     !state ||
+//     !zipCode
+//   ) {
+//     return res.status(400).json({ error: "Incomplete shipping information" });
+//   }
+
+//   if (subtotal === undefined || shipping === undefined || tax === undefined) {
+//     return res.status(400).json({ error: "Pricing information is incomplete" });
+//   }
+
+//   next();
+// };
+
 const validateOrderData = (req, res, next) => {
-  const {
-    reference,
-    orderId,
-    shippingInfo,
-    items,
-    subtotal,
-    shipping,
-    tax,
-    total,
-  } = req.body;
+  try {
+    const {
+      reference,
+      orderId,
+      shippingInfo,
+      items,
+      subtotal,
+      shipping,
+      tax,
+      total,
+    } = req.body;
 
-  if (!reference) {
-    return res.status(400).json({ error: "Payment reference is required" });
+    console.log("🔍 Validating order data...");
+
+    if (!reference) {
+      console.log("❌ Missing: reference");
+      return res.status(400).json({
+        success: false,
+        error: "Payment reference is required",
+      });
+    }
+
+    if (!orderId) {
+      console.log("❌ Missing: orderId");
+      return res.status(400).json({
+        success: false,
+        error: "Order ID is required",
+      });
+    }
+
+    if (!items || items.length === 0) {
+      console.log("❌ Missing: items");
+      return res.status(400).json({
+        success: false,
+        error: "Cart is empty",
+      });
+    }
+
+    if (!shippingInfo) {
+      console.log("❌ Missing: shippingInfo");
+      return res.status(400).json({
+        success: false,
+        error: "Shipping information is required",
+      });
+    }
+
+    const { fullName, email, phone, address, city, state, zipCode } =
+      shippingInfo;
+
+    if (
+      !fullName ||
+      !email ||
+      !phone ||
+      !address ||
+      !city ||
+      !state ||
+      !zipCode
+    ) {
+      console.log("❌ Missing: incomplete shipping information");
+      return res.status(400).json({
+        success: false,
+        error: "Incomplete shipping information",
+      });
+    }
+
+    if (subtotal === undefined || shipping === undefined || tax === undefined) {
+      console.log("❌ Missing: pricing information");
+      return res.status(400).json({
+        success: false,
+        error: "Pricing information is incomplete",
+      });
+    }
+
+    console.log("✅ All order data validated successfully");
+
+    // ✅ CRITICAL: Call next() to continue to route handler
+    next();
+  } catch (error) {
+    console.error("❌ Validation middleware error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Validation error: " + error.message,
+    });
   }
-
-  if (!orderId) {
-    return res.status(400).json({ error: "Order ID is required" });
-  }
-
-  if (!items || items.length === 0) {
-    return res.status(400).json({ error: "Cart is empty" });
-  }
-
-  if (!shippingInfo) {
-    return res.status(400).json({ error: "Shipping information is required" });
-  }
-
-  const { fullName, email, phone, address, city, state, zipCode } =
-    shippingInfo;
-
-  if (
-    !fullName ||
-    !email ||
-    !phone ||
-    !address ||
-    !city ||
-    !state ||
-    !zipCode
-  ) {
-    return res.status(400).json({ error: "Incomplete shipping information" });
-  }
-
-  if (subtotal === undefined || shipping === undefined || tax === undefined) {
-    return res.status(400).json({ error: "Pricing information is incomplete" });
-  }
-
-  next();
 };
+
+module.exports = { validateOrderData };
 
 // ================================================
 // ROUTES
