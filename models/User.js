@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true,
+      unique: true, // This creates an index automatically
       lowercase: true,
       trim: true,
       match: [
@@ -31,10 +31,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "vendor", "admin"],
       default: "user",
+      index: true, // Index for faster queries
     },
     vendorId: {
       type: String,
       sparse: true, // Only vendors have this
+      index: true, // This creates the index
     },
     isActive: {
       type: Boolean,
@@ -68,10 +70,13 @@ userSchema.pre("save", async function (next) {
   }
 
   try {
+    console.log("🔒 Hashing password...");
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    console.log("✅ Password hashed successfully");
     next();
   } catch (error) {
+    console.error("❌ Error hashing password:", error);
     next(error);
   }
 });
@@ -110,14 +115,6 @@ userSchema.statics.findActive = function () {
 userSchema.statics.findVendors = function () {
   return this.find({ role: "vendor", isActive: true });
 };
-
-// ========================================
-// INDEXES for better query performance
-// ========================================
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ vendorId: 1 });
-userSchema.index({ createdAt: -1 });
 
 // ========================================
 // CREATE AND EXPORT MODEL
