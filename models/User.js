@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: true, // This creates an index automatically
+      unique: true,
       lowercase: true,
       trim: true,
       match: [
@@ -31,12 +31,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "vendor", "admin"],
       default: "user",
-      index: true, // Index for faster queries
+      index: true,
     },
     vendorId: {
       type: String,
       sparse: true, // Only vendors have this
-      index: true, // This creates the index
+      index: true,
     },
     isActive: {
       type: Boolean,
@@ -64,20 +64,21 @@ const userSchema = new mongoose.Schema(
 // MIDDLEWARE - Hash password before saving
 // ========================================
 userSchema.pre("save", async function (next) {
-  // Only hash if password is new or modified
-  if (!this.isModified("password")) {
-    return next();
-  }
-
   try {
+    // Only hash if password is new or modified
+    if (!this.isModified("password")) {
+      console.log("⏭️  Password not modified, skipping hash");
+      return next();
+    }
+
     console.log("🔒 Hashing password...");
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     console.log("✅ Password hashed successfully");
     next();
   } catch (error) {
-    console.error("❌ Error hashing password:", error);
-    throw error;
+    console.error("❌ Error hashing password:", error.message);
+    next(error);
   }
 });
 
