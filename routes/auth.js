@@ -43,6 +43,7 @@ router.post("/register", async (req, res) => {
     console.log("✅ User doesn't exist, creating new user...");
 
     // Create user
+    console.log("📝 Creating user with data:", { name, email, role });
     user = await User.create({
       name,
       email,
@@ -51,6 +52,7 @@ router.post("/register", async (req, res) => {
     });
 
     console.log("✅ User created successfully:", user._id);
+    console.log("👤 User object:", user.toJSON());
 
     // Generate token - FIXED: Pass user._id, not user
     const token = generateToken(user._id);
