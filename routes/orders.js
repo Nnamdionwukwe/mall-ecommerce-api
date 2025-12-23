@@ -6,8 +6,21 @@ const axios = require("axios");
 
 const router = express.Router();
 
+console.log("🔍 PAYSTACK CONFIGURATION CHECK:");
+console.log("PAYSTACK_SECRET_KEY exists:", !!process.env.PAYSTACK_SECRET_KEY);
+console.log("PAYSTACK_SECRET_KEY value:", process.env.PAYSTACK_SECRET_KEY);
+console.log(
+  "PAYSTACK_SECRET_KEY length:",
+  process.env.PAYSTACK_SECRET_KEY?.length
+);
+console.log(
+  "Starts with 'sk_':",
+  process.env.PAYSTACK_SECRET_KEY?.startsWith("sk_")
+);
+console.log("---");
+
 // ================================================
-// MIDDLEWARE - VALIDATION
+// MIDDLEWARE
 // ================================================
 
 // ✅ FIXED: Validate order data
@@ -87,11 +100,11 @@ const validateOrderData = (req, res, next) => {
 
     console.log("✅ All order data validated successfully");
 
-    // ✅ CRITICAL: Call next() to pass to next middleware/route handler
-    return next();
+    // ✅ CRITICAL: Call next() to continue to route handler
+    next();
   } catch (error) {
-    console.error("❌ Validation middleware error:", error.message);
-    return res.status(500).json({
+    console.error("❌ Validation middleware error:", error);
+    res.status(500).json({
       success: false,
       error: "Validation error: " + error.message,
     });
@@ -119,26 +132,33 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
 
     const userId = req.user.id;
 
-    console.log("\n========================================");
     console.log("=== PAYMENT VERIFICATION START ===");
-    console.log("========================================");
     console.log("Reference:", reference);
     console.log("Order ID:", orderId);
     console.log("User ID:", userId);
-    console.log("Items count:", items.length);
+
+    // ✅ DEBUG: Check Paystack key before making request
+    console.log("\n🔐 PAYSTACK KEY CHECK:");
+    const paystackKey = process.env.PAYSTACK_SECRET_KEY;
+
+    if (!paystackKey) {
+      console.error("❌ FATAL: PAYSTACK_SECRET_KEY is not set!");
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error: Paystack key not found",
+        error: "PAYSTACK_SECRET_KEY is not set in environment variables",
+      });
+    }
+
+    console.log("✅ Paystack key found");
+    console.log("Key length:", paystackKey.length);
+    console.log("Key starts with:", paystackKey.substring(0, 8) + "...");
 
     // Verify with Paystack
     console.log("\n🔄 Verifying payment with Paystack...");
-
-    const paystackKey = process.env.PAYSTACK_SECRET_KEY;
-    if (!paystackKey) {
-      console.error("❌ FATAL: PAYSTACK_SECRET_KEY not found");
-      return res.status(500).json({
-        success: false,
-        message: "Server configuration error",
-        error: "PAYSTACK_SECRET_KEY is not set",
-      });
-    }
+    console.log(
+      "API URL: https://api.paystack.co/transaction/verify/" + reference
+    );
 
     const verificationResponse = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -149,8 +169,10 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       }
     );
 
-    console.log("✅ Paystack verification successful");
-    console.log("Response status:", verificationResponse.data.status);
+    console.log(
+      "✅ Paystack Response Status:",
+      verificationResponse.data.status
+    );
 
     if (!verificationResponse.data.status) {
       console.log("❌ Paystack verification failed");
@@ -163,7 +185,7 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     const paymentData = verificationResponse.data.data;
 
     if (paymentData.status !== "success") {
-      console.log("❌ Payment status is not success:", paymentData.status);
+      console.log("❌ Payment status is not success");
       return res.status(400).json({
         success: false,
         message: "Payment was not successful",
@@ -174,13 +196,10 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     console.log("✅ Payment verified successfully");
 
     // Validate items and update stock
-    console.log("\n🔄 Validating cart items and updating stock...");
+    console.log("🔄 Validating cart items and updating stock...");
 
     for (const item of items) {
-      console.log(`Checking product: ${item.name}`);
-
       const product = await Product.findById(item._id || item.productId);
-
       if (!product) {
         console.error(`❌ Product not found: ${item.name}`);
         return res.status(404).json({
@@ -188,8 +207,6 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
           message: `Product not found: ${item.name}`,
         });
       }
-
-      console.log(`Product found: ${product.name}, Checking stock...`);
 
       if (!product.isInStock(item.quantity)) {
         console.error(`❌ Insufficient stock for ${product.name}`);
@@ -200,21 +217,13 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       }
 
       // Decrease product stock
-      console.log(`Decreasing stock for ${product.name} by ${item.quantity}`);
       await product.decreaseStock(item.quantity);
-      console.log(`✅ Stock decreased for ${product.name}`);
     }
 
-    console.log("✅ All items validated and stock updated");
+    console.log("✅ Stock validated and updated");
 
     // Create order document
-    console.log("\n🔄 Creating order in database...");
-    console.log("Order data:", {
-      orderId,
-      userId,
-      itemsCount: items.length,
-      total,
-    });
+    console.log("🔄 Creating order in database...");
 
     const order = new Order({
       orderId,
@@ -252,17 +261,14 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       status: "processing",
     });
 
-    console.log("Order object created, saving to database...");
-
     // Save order to database
     const savedOrder = await order.save();
 
     console.log("✅ Order saved successfully!");
-    console.log("Saved Order ID:", savedOrder._id);
+    console.log("Order ID in DB:", savedOrder._id);
     console.log("=== PAYMENT VERIFICATION COMPLETE ===");
-    console.log("========================================\n");
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Payment verified and order created successfully",
       data: {
@@ -276,65 +282,39 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("\n========================================");
-    console.error("❌ ORDER CREATION ERROR");
-    console.error("========================================");
+    console.error("\n=== ORDER CREATION ERROR ===");
     console.error("Error Name:", error.name);
     console.error("Error Message:", error.message);
     console.error("Error Code:", error.code);
 
-    if (error.stack) {
-      console.error("Stack Trace:", error.stack);
+    if (error.response) {
+      console.error("Paystack API Error Status:", error.response.status);
+      console.error("Paystack API Error Data:", error.response.data);
+
+      if (error.response.status === 401) {
+        console.error("❌ 401 Unauthorized - Check your PAYSTACK_SECRET_KEY");
+        console.error("Is the key valid? Does it start with 'sk_'?");
+      }
     }
 
-    // Mongoose validation error
     if (error.name === "ValidationError") {
-      console.error("🔴 VALIDATION ERROR");
-      console.error("Validation Errors:", error.errors);
-
-      const validationErrors = Object.keys(error.errors).map((key) => ({
-        field: key,
-        message: error.errors[key].message,
-        value: error.errors[key].value,
-      }));
-
-      console.error("Formatted errors:", validationErrors);
-
+      console.error("MongoDB Validation Error:", error.errors);
       return res.status(400).json({
         success: false,
         message: "Invalid order data",
-        error: validationErrors,
-        errorType: "ValidationError",
+        error: Object.keys(error.errors).map((key) => ({
+          field: key,
+          message: error.errors[key].message,
+        })),
       });
     }
 
-    // MongoDB cast error
-    if (error.name === "CastError") {
-      console.error("🔴 CAST ERROR - Invalid ID format");
-      console.error("Error details:", error);
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid data format",
-        error: error.message,
-        errorType: "CastError",
-      });
-    }
-
-    // Paystack API error
-    if (error.response?.status) {
-      console.error("🔴 PAYSTACK API ERROR");
-      console.error("Paystack Status:", error.response.status);
-      console.error("Paystack Data:", error.response.data);
-    }
-
-    console.error("========================================\n");
-
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error creating order",
       error: error.message,
       errorType: error.name,
+      paystackError: error.response?.data || null,
     });
   }
 });
@@ -359,7 +339,7 @@ router.get("/", auth, async (req, res) => {
 
     const total = await Order.countDocuments(query);
 
-    return res.json({
+    res.json({
       success: true,
       data: orders,
       pagination: {
@@ -371,7 +351,7 @@ router.get("/", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error fetching orders",
       error: error.message,
@@ -401,7 +381,7 @@ router.get("/:orderId", auth, async (req, res) => {
 
     const daysLeft = order.daysUntilDelivery?.() || null;
 
-    return res.json({
+    res.json({
       success: true,
       data: {
         ...order.toObject(),
@@ -410,7 +390,7 @@ router.get("/:orderId", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching order:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error fetching order",
       error: error.message,
@@ -440,16 +420,16 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
       });
     }
 
-    await order.addNote(message, adminId);
+    await order.addNote?.(message, adminId);
 
-    return res.json({
+    res.json({
       success: true,
       message: "Note added successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error adding note:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error adding note",
       error: error.message,
@@ -490,14 +470,14 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
       });
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Order status updated successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error updating order status:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error updating order status",
       error: error.message,
@@ -532,14 +512,14 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
       });
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Delivery information updated successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error updating delivery info:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error updating delivery information",
       error: error.message,
@@ -583,14 +563,14 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
       }
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Order cancelled successfully",
       data: order,
     });
   } catch (error) {
     console.error("Error cancelling order:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error cancelling order",
       error: error.message,
@@ -614,7 +594,7 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
 
     const total = await Order.countDocuments({ status });
 
-    return res.json({
+    res.json({
       success: true,
       data: orders,
       pagination: {
@@ -626,7 +606,7 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Error filtering orders:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error filtering orders",
       error: error.message,
@@ -640,17 +620,16 @@ router.get("/stats/admin", auth, isAdmin, async (req, res) => {
     const stats = (await Order.getOrderStats?.()) || {
       totalOrders: 0,
       totalRevenue: 0,
-      averageOrderValue: 0,
     };
 
-    return res.json({
+    res.json({
       success: true,
       message: "All order statistics",
       data: stats,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error fetching statistics",
       error: error.message,
@@ -668,14 +647,14 @@ router.get("/stats/user", auth, async (req, res) => {
       totalSpent: 0,
     };
 
-    return res.json({
+    res.json({
       success: true,
       message: "User order statistics",
       data: stats,
     });
   } catch (error) {
     console.error("Error fetching user stats:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Error fetching user statistics",
       error: error.message,
@@ -684,7 +663,7 @@ router.get("/stats/user", auth, async (req, res) => {
 });
 
 // ================================================
-// EXPORT
+// EXPORT - ONLY EXPORT THE ROUTER
 // ================================================
 
 module.exports = router;
