@@ -6,12 +6,32 @@ const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
 const { auth } = require("../middleware/auth");
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error("❌ FATAL: JWT_SECRET not set in environment variables!");
+  process.exit(1);
+}
+
+console.log("✅ JWT_SECRET loaded from environment");
 
 // Generate JWT token - FIXED: Takes userId, not whole user object
 const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
 };
+
+// ========================================
+// TEST ENDPOINT
+// ========================================
+router.post("/test", (req, res) => {
+  console.log("✅ Test endpoint reached!");
+  console.log("📦 Request body:", req.body);
+  res.json({
+    success: true,
+    message: "Test endpoint working",
+    receivedData: req.body,
+  });
+});
 
 // ========================================
 // REGISTER - POST /api/auth/register
@@ -44,6 +64,8 @@ router.post("/register", async (req, res) => {
 
     // Create user
     console.log("📝 Creating user with data:", { name, email, role });
+    console.log("🔑 Password length:", password.length);
+
     user = await User.create({
       name,
       email,
