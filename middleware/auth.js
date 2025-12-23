@@ -3,7 +3,6 @@ const jwt = require("jsonwebtoken");
 const auth = (req, res, next) => {
   try {
     let token;
-
     // Get token from header
     if (req.headers.authorization) {
       // Expected format: "Bearer <token>"
@@ -27,11 +26,19 @@ const auth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("✅ Token verified. Decoded:", decoded);
 
+    // ✅ FIXED: Map userId from token to both 'id' and 'userId' for compatibility
+    // Token contains 'userId', but orders.js expects 'id'
     req.user = {
-      userId: decoded.userId,
+      id: decoded.userId, // ✅ Used by orders.js
+      userId: decoded.userId, // ✅ Used by auth.js and other routes
+      email: decoded.email,
+      role: decoded.role,
     };
 
     console.log("👤 User attached to request:", req.user);
+    console.log("👤 User ID (id):", req.user.id);
+    console.log("👤 User ID (userId):", req.user.userId);
+
     next();
   } catch (error) {
     console.error("❌ Auth error:", error.message);
@@ -59,22 +66,38 @@ const auth = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
   if (req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Access denied. Admin role required",
     });
   }
+
   next();
 };
 
 const isVendor = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
   if (req.user.role !== "vendor" && req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Access denied. Vendor role required",
     });
   }
+
   next();
 };
 
