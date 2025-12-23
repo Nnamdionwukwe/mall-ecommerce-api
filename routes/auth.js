@@ -21,75 +21,133 @@ router.post("/test", (req, res) => {
 // ========================================
 // REGISTER - POST /api/auth/register
 // ========================================
-router.post(
-  "/register",
-  [
-    body("name")
-      .trim()
-      .isLength({ min: 2 })
-      .withMessage("Name must be at least 2 characters"),
-    body("email")
-      .isEmail()
-      .normalizeEmail()
-      .withMessage("Please enter a valid email"),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters"),
-    body("role")
-      .optional()
-      .isIn(["user", "vendor"])
-      .withMessage("Invalid role"),
-  ],
-  async (req, res) => {
-    try {
-      // Validate input
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
+// router.post(
+//   "/register",
+//   [
+//     body("name")
+//       .trim()
+//       .isLength({ min: 2 })
+//       .withMessage("Name must be at least 2 characters"),
+//     body("email")
+//       .isEmail()
+//       .normalizeEmail()
+//       .withMessage("Please enter a valid email"),
+//     body("password")
+//       .isLength({ min: 6 })
+//       .withMessage("Password must be at least 6 characters"),
+//     body("role")
+//       .optional()
+//       .isIn(["user", "vendor"])
+//       .withMessage("Invalid role"),
+//   ],
+//   async (req, res) => {
+//     try {
+//       // Validate input
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         return res.status(400).json({ errors: errors.array() });
+//       }
 
-      const { name, email, password, role } = req.body;
+//       const { name, email, password, role } = req.body;
 
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already registered" });
-      }
+//       // Check if user already exists
+//       const existingUser = await User.findOne({ email });
+//       if (existingUser) {
+//         return res.status(400).json({ error: "Email already registered" });
+//       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+//       // Hash password
+//       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create vendor ID if role is vendor
-      const vendorId = role === "vendor" ? `vendor_${Date.now()}` : undefined;
+//       // Create vendor ID if role is vendor
+//       const vendorId = role === "vendor" ? `vendor_${Date.now()}` : undefined;
 
-      // Create user
-      const user = new User({
-        name,
-        email,
-        password: hashedPassword,
-        role: role || "user",
-        vendorId,
+//       // Create user
+//       const user = new User({
+//         name,
+//         email,
+//         password: hashedPassword,
+//         role: role || "user",
+//         vendorId,
+//       });
+
+//       await user.save();
+
+//       // Generate token
+//       const token = generateToken(user._id);
+
+//       res.status(201).json({
+//         success: true,
+//         message: "User registered successfully",
+//         data: {
+//           user: user.toJSON(),
+//           token,
+//         },
+//       });
+//     } catch (error) {
+//       console.error("Register error:", error);
+//       res.status(500).json({ error: "Server error", message: error.message });
+//     }
+//   }
+// );
+
+router.post("/register", async (req, res) => {
+  try {
+    console.log("📝 Register request received:", req.body);
+
+    const { name, email, password, role } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide name, email, and password",
       });
-
-      await user.save();
-
-      // Generate token
-      const token = generateToken(user._id);
-
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        data: {
-          user: user.toJSON(),
-          token,
-        },
-      });
-    } catch (error) {
-      console.error("Register error:", error);
-      res.status(500).json({ error: "Server error", message: error.message });
     }
+
+    // Check if user exists
+    console.log("🔍 Checking if user exists with email:", email);
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email",
+      });
+    }
+
+    console.log("✅ User doesn't exist, creating new user...");
+
+    // Create user
+    user = await User.create({
+      name,
+      email,
+      password,
+      role: role || "user",
+    });
+
+    console.log("✅ User created successfully:", user._id);
+
+    // Generate token
+    const token = generateToken(user);
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      token,
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    console.error("❌ Register error:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+
+    res.status(500).json({
+      success: false,
+      message: "Error registering user",
+      error: error.message,
+    });
   }
-);
+});
 
 // ========================================
 // LOGIN - POST /api/auth/login
