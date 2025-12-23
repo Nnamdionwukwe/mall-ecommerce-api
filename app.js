@@ -35,7 +35,7 @@ const cartRoutes = require("./routes/cart");
 
 // Routes
 app.use("/api/products", productRoutes);
-app.use("/api/auth", authRoutes);
+// app.use("/api/auth", authRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/routes/auth", authRoutes);
