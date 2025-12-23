@@ -63,22 +63,21 @@ const userSchema = new mongoose.Schema(
 // ========================================
 // MIDDLEWARE - Hash password before saving
 // ========================================
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   try {
     // Only hash if password is new or modified
     if (!this.isModified("password")) {
       console.log("⏭️  Password not modified, skipping hash");
-      return next();
+      return;
     }
 
     console.log("🔒 Hashing password...");
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     console.log("✅ Password hashed successfully");
-    next();
   } catch (error) {
     console.error("❌ Error hashing password:", error.message);
-    next(error);
+    throw error;
   }
 });
 
