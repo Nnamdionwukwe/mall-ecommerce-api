@@ -1,4 +1,3 @@
-// import mongoose from "mongoose";
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
@@ -110,7 +109,7 @@ const orderSchema = new mongoose.Schema(
       reference: {
         type: String,
         required: true,
-        index: true,
+        index: true, // Keep only this index definition
       },
       transactionId: {
         type: String,
@@ -176,10 +175,20 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster queries
+// ================================================
+// INDEXES - Removed duplicate, kept only schema.index()
+// ================================================
+
+// Compound indexes for faster queries
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
-orderSchema.index({ "paymentInfo.reference": 1 });
+
+// Note: paymentInfo.reference index is already defined in the field above
+// Don't repeat it here with schema.index()
+
+// ================================================
+// MIDDLEWARE
+// ================================================
 
 // Pre-save middleware to update timestamps
 orderSchema.pre("save", function (next) {
@@ -189,6 +198,10 @@ orderSchema.pre("save", function (next) {
   }
   next();
 });
+
+// ================================================
+// INSTANCE METHODS
+// ================================================
 
 // Method to calculate days until delivery
 orderSchema.methods.daysUntilDelivery = function () {
@@ -215,7 +228,11 @@ orderSchema.methods.canBeCancelled = function () {
   return this.status === "processing" && this.paymentInfo.status === "paid";
 };
 
-// Static method to get order stats for admin
+// ================================================
+// STATIC METHODS
+// ================================================
+
+// Static method to get order stats for admin or user
 orderSchema.statics.getOrderStats = async function (userId = null) {
   const query = userId ? { userId } : {};
 
@@ -244,6 +261,15 @@ orderSchema.statics.findByStatus = function (status, userId = null) {
   }
   return this.find(query).sort({ createdAt: -1 });
 };
+
+// Static method to find order by payment reference
+orderSchema.statics.findByPaymentReference = function (reference) {
+  return this.findOne({ "paymentInfo.reference": reference });
+};
+
+// ================================================
+// MODEL
+// ================================================
 
 const Order = mongoose.model("Order", orderSchema);
 
