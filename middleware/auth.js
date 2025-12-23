@@ -1,8 +1,10 @@
 const jwt = require("jsonwebtoken");
 
+// ✅ FIXED: Complete auth middleware
 const auth = (req, res, next) => {
   try {
     let token;
+
     // Get token from header
     if (req.headers.authorization) {
       // Expected format: "Bearer <token>"
@@ -26,19 +28,20 @@ const auth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("✅ Token verified. Decoded:", decoded);
 
-    // ✅ FIXED: Map userId from token to both 'id' and 'userId' for compatibility
-    // Token contains 'userId', but orders.js expects 'id'
+    // ✅ FIXED: Properly attach user to request
+    // Map userId from token to both 'id' and 'userId' for compatibility
     req.user = {
-      id: decoded.userId, // ✅ Used by orders.js
-      userId: decoded.userId, // ✅ Used by auth.js and other routes
+      id: decoded.userId, // ✅ For orders.js
+      userId: decoded.userId, // ✅ For auth.js and other routes
       email: decoded.email,
-      role: decoded.role,
+      role: decoded.role || "user",
     };
 
     console.log("👤 User attached to request:", req.user);
     console.log("👤 User ID (id):", req.user.id);
     console.log("👤 User ID (userId):", req.user.userId);
 
+    // ✅ CRITICAL: Call next() to continue middleware chain
     next();
   } catch (error) {
     console.error("❌ Auth error:", error.message);
@@ -57,7 +60,7 @@ const auth = (req, res, next) => {
       });
     }
 
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
       error: error.message,
@@ -65,7 +68,9 @@ const auth = (req, res, next) => {
   }
 };
 
+// ✅ FIXED: Admin middleware
 const isAdmin = (req, res, next) => {
+  // ✅ Check if user exists
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -73,6 +78,7 @@ const isAdmin = (req, res, next) => {
     });
   }
 
+  // ✅ Check if user is admin
   if (req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -80,10 +86,13 @@ const isAdmin = (req, res, next) => {
     });
   }
 
+  // ✅ CRITICAL: Call next() to continue
   next();
 };
 
+// ✅ FIXED: Vendor middleware
 const isVendor = (req, res, next) => {
+  // ✅ Check if user exists
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -91,6 +100,7 @@ const isVendor = (req, res, next) => {
     });
   }
 
+  // ✅ Check if user is vendor or admin
   if (req.user.role !== "vendor" && req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -98,6 +108,7 @@ const isVendor = (req, res, next) => {
     });
   }
 
+  // ✅ CRITICAL: Call next() to continue
   next();
 };
 
