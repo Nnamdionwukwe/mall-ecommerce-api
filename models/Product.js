@@ -49,48 +49,96 @@ const productSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
 // Create indexes for better query performance
 productSchema.index({ category: 1, price: 1 });
-productSchema.index({ name: "text", description: "text" }); // For text search
+productSchema.index({ name: "text", description: "text" });
 
-// Pre-save hook for validation
+// ✅ FIXED: Pre-save hook with proper next() handling
 productSchema.pre("save", function (next) {
-  // Trim whitespace from name and description
-  if (this.name) this.name = this.name.trim();
-  if (this.description) this.description = this.description.trim();
-  next();
+  try {
+    // Trim whitespace from name and description
+    if (this.name) this.name = this.name.trim();
+    if (this.description) this.description = this.description.trim();
+
+    // ✅ CRITICAL: Always call next() at the end
+    next();
+  } catch (error) {
+    // ✅ Pass errors to next()
+    next(error);
+  }
 });
 
-// Instance methods
-productSchema.methods.decreaseStock = function (quantity) {
-  if (this.stock < quantity) {
-    throw new Error("Insufficient stock");
+// ✅ FIXED: Instance methods with proper error handling
+productSchema.methods.decreaseStock = async function (quantity) {
+  try {
+    console.log(`📦 Decreasing stock for ${this.name} by ${quantity}`);
+
+    if (this.stock < quantity) {
+      throw new Error(`Insufficient stock for ${this.name}`);
+    }
+
+    this.stock -= quantity;
+    console.log(`✅ Stock decreased. New stock: ${this.stock}`);
+
+    // ✅ Properly await the save
+    const savedProduct = await this.save();
+    console.log(`✅ Product saved: ${savedProduct.name}`);
+
+    return savedProduct;
+  } catch (error) {
+    console.error(`❌ Error decreasing stock: ${error.message}`);
+    throw error;
   }
-  this.stock -= quantity;
-  return this.save();
 };
 
-productSchema.methods.increaseStock = function (quantity) {
-  this.stock += quantity;
-  return this.save();
+productSchema.methods.increaseStock = async function (quantity) {
+  try {
+    console.log(`📦 Increasing stock for ${this.name} by ${quantity}`);
+
+    this.stock += quantity;
+    console.log(`✅ Stock increased. New stock: ${this.stock}`);
+
+    // ✅ Properly await the save
+    const savedProduct = await this.save();
+    console.log(`✅ Product saved: ${savedProduct.name}`);
+
+    return savedProduct;
+  } catch (error) {
+    console.error(`❌ Error increasing stock: ${error.message}`);
+    throw error;
+  }
 };
 
 productSchema.methods.isInStock = function (quantity = 1) {
-  return this.stock >= quantity;
+  const hasStock = this.stock >= quantity;
+  console.log(
+    `🔍 Checking stock for ${this.name}: ${this.stock} >= ${quantity} = ${hasStock}`
+  );
+  return hasStock;
 };
 
-productSchema.methods.deactivate = function () {
-  this.isActive = false;
-  return this.save();
+productSchema.methods.deactivate = async function () {
+  try {
+    this.isActive = false;
+    return await this.save();
+  } catch (error) {
+    console.error(`❌ Error deactivating product: ${error.message}`);
+    throw error;
+  }
 };
 
-productSchema.methods.activate = function () {
-  this.isActive = true;
-  return this.save();
+productSchema.methods.activate = async function () {
+  try {
+    this.isActive = true;
+    return await this.save();
+  } catch (error) {
+    console.error(`❌ Error activating product: ${error.message}`);
+    throw error;
+  }
 };
 
 // Static methods

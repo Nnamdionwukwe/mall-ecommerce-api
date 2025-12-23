@@ -117,7 +117,7 @@ const validateOrderData = (req, res, next) => {
 // ROUTES
 // ================================================
 
-// POST /verify-payment
+// POST /verify-payment - Verify payment and create order
 router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   try {
     console.log("\n🔍 [verify-payment] Route handler started");
@@ -136,11 +136,13 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
 
     const userId = req.user.id;
 
-    console.log("=== PAYMENT VERIFICATION START ===");
+    console.log("\n=== PAYMENT VERIFICATION START ===");
     console.log("Reference:", reference);
     console.log("Order ID:", orderId);
     console.log("User ID:", userId);
+    console.log("Items count:", items.length);
 
+    // Verify with Paystack
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
     if (!paystackKey) {
@@ -153,7 +155,7 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     }
 
     console.log("✅ Paystack key found");
-    console.log("\n🔄 Verifying payment with Paystack...");
+    console.log("🔄 Verifying payment with Paystack...");
 
     const verificationResponse = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -190,10 +192,12 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
 
     console.log("✅ Payment verified successfully");
 
-    // Validate items and update stock
-    console.log("🔄 Validating cart items and updating stock...");
+    // ✅ CRITICAL: Validate items and update stock with proper await
+    console.log("\n🔄 Validating cart items and updating stock...");
 
     for (const item of items) {
+      console.log(`📦 Processing item: ${item.name}`);
+
       const product = await Product.findById(item._id || item.productId);
       if (!product) {
         console.error(`❌ Product not found: ${item.name}`);
@@ -203,6 +207,8 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
         });
       }
 
+      console.log(`✅ Product found: ${product.name}`);
+
       if (!product.isInStock(item.quantity)) {
         console.error(`❌ Insufficient stock for ${product.name}`);
         return res.status(400).json({
@@ -211,24 +217,36 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
         });
       }
 
+      console.log(`🔄 Decreasing stock for ${product.name}...`);
+      // ✅ CRITICAL: Use await since decreaseStock is now async
       await product.decreaseStock(item.quantity);
+      console.log(`✅ Stock updated for ${product.name}`);
     }
 
-    console.log("✅ Stock validated and updated");
+    console.log("✅ All items validated and stock updated");
 
     // Create order document
-    console.log("🔄 Creating order in database...");
+    console.log("\n🔄 Creating order in database...");
 
-    const order = new Order({
+    console.log("📋 Order data being created:");
+    console.log("  - orderId:", orderId);
+    console.log("  - userId:", userId);
+    console.log("  - items count:", items.length);
+    console.log("  - total:", total);
+
+    const orderData = {
       orderId,
       userId,
-      items: items.map((item) => ({
-        productId: item._id || item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.images?.[0] || item.image || null,
-      })),
+      items: items.map((item) => {
+        console.log(`  - Mapping item: ${item.name}`);
+        return {
+          productId: item._id || item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.images?.[0] || item.image || null,
+        };
+      }),
       shippingInfo: {
         fullName: shippingInfo.fullName,
         email: shippingInfo.email,
@@ -253,8 +271,16 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
         paidAt: new Date(paymentData.paid_at),
       },
       status: "processing",
-    });
+    };
 
+    console.log("📦 Creating Order object...");
+    const order = new Order(orderData);
+
+    console.log("💾 Validating Order object...");
+    await order.validate();
+    console.log("✅ Order object validated");
+
+    console.log("💾 Saving Order to database...");
     const savedOrder = await order.save();
 
     console.log("✅ Order saved successfully!");
@@ -280,21 +306,47 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     console.error("========================================");
     console.error("Error Name:", error.name);
     console.error("Error Message:", error.message);
-    console.error("Stack:", error.stack);
+    console.error("Error Code:", error.code);
+    console.error("Full Error Object:", error);
+    console.error("Stack Trace:", error.stack);
 
     if (error.response) {
-      console.error("Paystack API Error:", error.response.data);
+      console.error("HTTP Error Status:", error.response.status);
+      console.error("HTTP Error Data:", error.response.data);
     }
 
     if (error.name === "ValidationError") {
-      console.error("MongoDB Validation Errors:", error.errors);
+      console.error("🔴 MONGODB VALIDATION ERROR");
+      console.error("Validation Errors:", error.errors);
+
+      const validationDetails = Object.keys(error.errors).map((key) => {
+        const err = error.errors[key];
+        return {
+          field: key,
+          message: err.message,
+          value: err.value,
+          kind: err.kind,
+        };
+      });
+
+      console.error("Formatted Validation Errors:", validationDetails);
+
       return res.status(400).json({
         success: false,
         message: "Invalid order data",
-        error: Object.keys(error.errors).map((key) => ({
-          field: key,
-          message: error.errors[key].message,
-        })),
+        error: validationDetails,
+        errorType: "ValidationError",
+      });
+    }
+
+    if (error.name === "CastError") {
+      console.error("🔴 MONGODB CAST ERROR");
+      console.error("Cast Error Details:", error);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid data format",
+        error: error.message,
+        errorType: "CastError",
       });
     }
 
@@ -305,6 +357,7 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       message: "Error creating order",
       error: error.message,
       errorType: error.name,
+      details: error.errors || error,
     });
   }
 });
@@ -547,11 +600,15 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     order.cancellationReason = reason || "User requested cancellation";
     await order.save();
 
-    // Restore product stock on cancellation
+    // ✅ CRITICAL: Use await for stock restoration
+    console.log("🔄 Restoring product stock on cancellation...");
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
+        console.log(`📦 Restoring ${product.name} stock by ${item.quantity}`);
+        // ✅ Use await since increaseStock is now async
         await product.increaseStock(item.quantity);
+        console.log(`✅ Stock restored for ${product.name}`);
       }
     }
 
