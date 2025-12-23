@@ -33,7 +33,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB error:", err.message));
 
 // ================================================
-// HEALTH CHECK - BEFORE ROUTES
+// HEALTH CHECK - FIRST ENDPOINT
 // ================================================
 app.get("/api/health", (req, res) => {
   res.json({
@@ -43,23 +43,79 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({
-    status: "OK",
-    message: "Server is running",
-    timestamp: new Date().toISOString(),
-  });
-});
+// ================================================
+// ROUTES IMPORT WITH ERROR HANDLING
+// ================================================
+console.log("\n🔍 Loading routes...\n");
 
-// ================================================
-// ROUTES IMPORT
-// ================================================
-const authRoutes = require("./routes/auth");
-const productRoutes = require("./routes/products");
-const cartRoutes = require("./routes/cart");
-const orderRoutes = require("./routes/orders");
-const supportRoutes = require("./routes/support");
-const checkoutRoutes = require("./routes/checkout");
+let authRoutes,
+  productRoutes,
+  cartRoutes,
+  orderRoutes,
+  supportRoutes,
+  checkoutRoutes;
+
+try {
+  console.log("📦 Loading authRoutes...");
+  authRoutes = require("./routes/auth");
+  console.log("✅ authRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading authRoutes:", e.message);
+  authRoutes = (req, res) =>
+    res.status(500).json({ error: "Auth routes failed to load" });
+}
+
+try {
+  console.log("📦 Loading productRoutes...");
+  productRoutes = require("./routes/products");
+  console.log("✅ productRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading productRoutes:", e.message);
+  productRoutes = (req, res) =>
+    res.status(500).json({ error: "Product routes failed to load" });
+}
+
+try {
+  console.log("📦 Loading cartRoutes...");
+  cartRoutes = require("./routes/cart");
+  console.log("✅ cartRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading cartRoutes:", e.message);
+  cartRoutes = (req, res) =>
+    res.status(500).json({ error: "Cart routes failed to load" });
+}
+
+try {
+  console.log("📦 Loading orderRoutes...");
+  orderRoutes = require("./routes/orders");
+  console.log("✅ orderRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading orderRoutes:", e.message);
+  orderRoutes = (req, res) =>
+    res.status(500).json({ error: "Order routes failed to load" });
+}
+
+try {
+  console.log("📦 Loading supportRoutes...");
+  supportRoutes = require("./routes/support");
+  console.log("✅ supportRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading supportRoutes:", e.message);
+  supportRoutes = (req, res) =>
+    res.status(500).json({ error: "Support routes failed to load" });
+}
+
+try {
+  console.log("📦 Loading checkoutRoutes...");
+  checkoutRoutes = require("./routes/checkout");
+  console.log("✅ checkoutRoutes loaded");
+} catch (e) {
+  console.error("❌ Error loading checkoutRoutes:", e.message);
+  checkoutRoutes = (req, res) =>
+    res.status(500).json({ error: "Checkout routes failed to load" });
+}
+
+console.log("\n✅ All routes loaded!\n");
 
 // ================================================
 // ROUTE SETUP
