@@ -66,175 +66,183 @@ const validateOrderData = (req, res, next) => {
 // ================================================
 
 // POST /api/orders/verify-payment - Verify payment and create order
-router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
-  try {
-    const {
-      reference,
-      orderId,
-      shippingInfo,
-      items,
-      subtotal,
-      shipping,
-      tax,
-      total,
-      orderNote,
-    } = req.body;
-
-    const userId = req.user.id;
-
-    console.log("=== PAYMENT VERIFICATION START ===");
-    console.log("Reference:", reference);
-    console.log("Order ID:", orderId);
-    console.log("User ID:", userId);
-
-    // Verify with Paystack
-    console.log("🔄 Verifying payment with Paystack...");
-
-    const verificationResponse = await axios.get(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        },
-      }
-    );
-
-    console.log("Paystack Response Status:", verificationResponse.data.status);
-
-    if (!verificationResponse.data.status) {
-      console.log("❌ Paystack verification failed");
-      return res.status(400).json({
-        success: false,
-        message: "Payment verification failed with Paystack",
-      });
-    }
-
-    const paymentData = verificationResponse.data.data;
-
-    if (paymentData.status !== "success") {
-      console.log("❌ Payment status is not success");
-      return res.status(400).json({
-        success: false,
-        message: "Payment was not successful",
-        paymentStatus: paymentData.status,
-      });
-    }
-
-    console.log("✅ Payment verified successfully");
-
-    // Validate items and update stock
-    console.log("🔄 Validating cart items and updating stock...");
-
-    for (const item of items) {
-      const product = await Product.findById(item._id || item.productId);
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${item.name}`,
-        });
-      }
-
-      if (!product.isInStock(item.quantity)) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${product.name}`,
-        });
-      }
-
-      // Decrease product stock
-      await product.decreaseStock(item.quantity);
-    }
-
-    console.log("✅ Stock validated and updated");
-
-    // Create order document
-    console.log("🔄 Creating order in database...");
-
-    const order = new Order({
-      orderId,
-      userId,
-      items: items.map((item) => ({
-        productId: item._id || item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.images?.[0] || item.image || null,
-      })),
-      shippingInfo: {
-        fullName: shippingInfo.fullName,
-        email: shippingInfo.email,
-        phone: shippingInfo.phone,
-        address: shippingInfo.address,
-        city: shippingInfo.city,
-        state: shippingInfo.state,
-        zipCode: shippingInfo.zipCode,
-      },
-      orderNote: orderNote || "",
-      pricing: {
+router.post(
+  "/orders/verify-payment",
+  auth,
+  validateOrderData,
+  async (req, res) => {
+    try {
+      const {
+        reference,
+        orderId,
+        shippingInfo,
+        items,
         subtotal,
         shipping,
         tax,
         total,
-      },
-      paymentInfo: {
-        method: "paystack",
-        reference: paymentData.reference,
-        transactionId: paymentData.id,
-        status: "paid",
-        paidAt: new Date(paymentData.paid_at),
-      },
-      status: "processing",
-    });
+        orderNote,
+      } = req.body;
 
-    // Save order to database
-    const savedOrder = await order.save();
+      const userId = req.user.id;
 
-    console.log("✅ Order saved successfully!");
-    console.log("Order ID in DB:", savedOrder._id);
-    console.log("=== PAYMENT VERIFICATION COMPLETE ===");
+      console.log("=== PAYMENT VERIFICATION START ===");
+      console.log("Reference:", reference);
+      console.log("Order ID:", orderId);
+      console.log("User ID:", userId);
 
-    res.status(201).json({
-      success: true,
-      message: "Payment verified and order created successfully",
-      data: {
-        orderId: savedOrder.orderId,
-        _id: savedOrder._id,
-        status: savedOrder.status,
-        total: savedOrder.pricing.total,
-        paymentStatus: savedOrder.paymentInfo.status,
-        email: savedOrder.shippingInfo.email,
-        createdAt: savedOrder.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error("=== ORDER CREATION ERROR ===");
-    console.error("Error Message:", error.message);
-    console.error("Error Stack:", error.stack);
+      // Verify with Paystack
+      console.log("🔄 Verifying payment with Paystack...");
 
-    if (error.response?.status) {
-      console.error("Paystack API Error:", error.response.data);
-    }
+      const verificationResponse = await axios.get(
+        `https://api.paystack.co/transaction/verify/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          },
+        }
+      );
 
-    if (error.name === "ValidationError") {
-      console.error("MongoDB Validation Error:", error.errors);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order data",
-        error: Object.keys(error.errors).map((key) => ({
-          field: key,
-          message: error.errors[key].message,
+      console.log(
+        "Paystack Response Status:",
+        verificationResponse.data.status
+      );
+
+      if (!verificationResponse.data.status) {
+        console.log("❌ Paystack verification failed");
+        return res.status(400).json({
+          success: false,
+          message: "Payment verification failed with Paystack",
+        });
+      }
+
+      const paymentData = verificationResponse.data.data;
+
+      if (paymentData.status !== "success") {
+        console.log("❌ Payment status is not success");
+        return res.status(400).json({
+          success: false,
+          message: "Payment was not successful",
+          paymentStatus: paymentData.status,
+        });
+      }
+
+      console.log("✅ Payment verified successfully");
+
+      // Validate items and update stock
+      console.log("🔄 Validating cart items and updating stock...");
+
+      for (const item of items) {
+        const product = await Product.findById(item._id || item.productId);
+        if (!product) {
+          return res.status(404).json({
+            success: false,
+            message: `Product not found: ${item.name}`,
+          });
+        }
+
+        if (!product.isInStock(item.quantity)) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient stock for ${product.name}`,
+          });
+        }
+
+        // Decrease product stock
+        await product.decreaseStock(item.quantity);
+      }
+
+      console.log("✅ Stock validated and updated");
+
+      // Create order document
+      console.log("🔄 Creating order in database...");
+
+      const order = new Order({
+        orderId,
+        userId,
+        items: items.map((item) => ({
+          productId: item._id || item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.images?.[0] || item.image || null,
         })),
+        shippingInfo: {
+          fullName: shippingInfo.fullName,
+          email: shippingInfo.email,
+          phone: shippingInfo.phone,
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          state: shippingInfo.state,
+          zipCode: shippingInfo.zipCode,
+        },
+        orderNote: orderNote || "",
+        pricing: {
+          subtotal,
+          shipping,
+          tax,
+          total,
+        },
+        paymentInfo: {
+          method: "paystack",
+          reference: paymentData.reference,
+          transactionId: paymentData.id,
+          status: "paid",
+          paidAt: new Date(paymentData.paid_at),
+        },
+        status: "processing",
+      });
+
+      // Save order to database
+      const savedOrder = await order.save();
+
+      console.log("✅ Order saved successfully!");
+      console.log("Order ID in DB:", savedOrder._id);
+      console.log("=== PAYMENT VERIFICATION COMPLETE ===");
+
+      res.status(201).json({
+        success: true,
+        message: "Payment verified and order created successfully",
+        data: {
+          orderId: savedOrder.orderId,
+          _id: savedOrder._id,
+          status: savedOrder.status,
+          total: savedOrder.pricing.total,
+          paymentStatus: savedOrder.paymentInfo.status,
+          email: savedOrder.shippingInfo.email,
+          createdAt: savedOrder.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error("=== ORDER CREATION ERROR ===");
+      console.error("Error Message:", error.message);
+      console.error("Error Stack:", error.stack);
+
+      if (error.response?.status) {
+        console.error("Paystack API Error:", error.response.data);
+      }
+
+      if (error.name === "ValidationError") {
+        console.error("MongoDB Validation Error:", error.errors);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order data",
+          error: Object.keys(error.errors).map((key) => ({
+            field: key,
+            message: error.errors[key].message,
+          })),
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Error creating order",
+        error: error.message,
+        errorType: error.name,
       });
     }
-
-    res.status(500).json({
-      success: false,
-      message: "Error creating order",
-      error: error.message,
-      errorType: error.name,
-    });
   }
-});
+);
 
 // GET /api/orders - Get user's orders
 router.get("/", auth, async (req, res) => {
