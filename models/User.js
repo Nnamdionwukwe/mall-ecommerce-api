@@ -1,139 +1,127 @@
-// ========================================
-// 2. AUTH ROUTES (routes/auth.js) - NEW
-// ========================================
-const express = require("express");
-const router = express.Router();
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const { auth } = require("../middleware/auth");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
-// Generate JWT Token
-const generateToken = (user) => {
-  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+      minlength: [2, "Name must be at least 2 characters"],
+      maxlength: [50, "Name cannot exceed 50 characters"],
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Please enter a valid email",
+      ],
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
+      select: false, // Don't return password by default in queries
+    },
+    role: {
+      type: String,
+      enum: ["user", "vendor", "admin"],
+      default: "user",
+    },
+    vendorId: {
+      type: String,
+      sparse: true, // Only vendors have this
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    phone: {
+      type: String,
+      default: null,
+    },
+    address: {
+      type: String,
+      default: null,
+    },
+  },
+  {
+    timestamps: true, // Automatically adds createdAt and updatedAt
+  }
+);
+
+// ========================================
+// MIDDLEWARE - Hash password before saving
+// ========================================
+userSchema.pre("save", async function (next) {
+  // Only hash if password is new or modified
+  if (!this.isModified("password")) {
+    return next();
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ========================================
+// INSTANCE METHODS
+// ========================================
+
+// Compare entered password with hashed password
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Register
-router.post("/register", async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
+// Return user object without password
+userSchema.methods.toJSON = function () {
+  const user = this.toObject();
+  delete user.password;
+  return user;
+};
 
-    // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide name, email, and password",
-      });
-    }
+// ========================================
+// STATIC METHODS
+// ========================================
 
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this email",
-      });
-    }
+// Find user by email
+userSchema.statics.findByEmail = function (email) {
+  return this.findOne({ email });
+};
 
-    // Create user
-    user = await User.create({
-      name,
-      email,
-      password,
-      role: role || "user",
-    });
+// Find active users only
+userSchema.statics.findActive = function () {
+  return this.find({ isActive: true });
+};
 
-    // Generate token
-    const token = generateToken(user);
+// Find vendors
+userSchema.statics.findVendors = function () {
+  return this.find({ role: "vendor", isActive: true });
+};
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      token,
-      user: user.toJSON(),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error registering user",
-      error: error.message,
-    });
-  }
-});
+// ========================================
+// INDEXES for better query performance
+// ========================================
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ vendorId: 1 });
+userSchema.index({ createdAt: -1 });
 
-// Login
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// ========================================
+// CREATE AND EXPORT MODEL
+// ========================================
+const User = mongoose.model("User", userSchema);
 
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide email and password",
-      });
-    }
-
-    // Check for user (select password explicitly since we set select: false)
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated",
-      });
-    }
-
-    // Compare password
-    const isPasswordCorrect = await user.matchPassword(password);
-    if (!isPasswordCorrect) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    // Generate token
-    const token = generateToken(user);
-
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: user.toJSON(),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error logging in",
-      error: error.message,
-    });
-  }
-});
-
-// Get current user (protected route)
-router.get("/me", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    res.status(200).json({
-      success: true,
-      user: user.toJSON(),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching user",
-      error: error.message,
-    });
-  }
-});
-
-module.exports = router;
+module.exports = User;
