@@ -1,48 +1,57 @@
-// ========================================
-// 3. AUTH MIDDLEWARE (middleware/auth.js)
-// ========================================
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+//
 
-// Verify JWT token
-const auth = async (req, res, next) => {
+const jwt = require("jsonwebtoken");
+
+const auth = (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    let token;
+
+    // Get token from header
+    if (req.headers.authorization) {
+      token = req.headers.authorization.split(" ")[1];
+    }
 
     if (!token) {
-      return res.status(401).json({ error: "Authentication required" });
+      return res.status(401).json({
+        success: false,
+        message: "No authorization token provided",
+      });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key-change-this"
-    );
-    const user = await User.findOne({ _id: decoded.userId, isActive: true });
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!user) {
-      return res.status(401).json({ error: "User not found or inactive" });
-    }
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
 
-    req.user = user;
-    req.token = token;
     next();
   } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+      error: error.message,
+    });
   }
 };
 
-// Check if user is admin
 const isAdmin = (req, res, next) => {
   if (req.user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin role required",
+    });
   }
   next();
 };
 
-// Check if user is vendor
 const isVendor = (req, res, next) => {
   if (req.user.role !== "vendor" && req.user.role !== "admin") {
-    return res.status(403).json({ error: "Vendor access required" });
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Vendor role required",
+    });
   }
   next();
 };

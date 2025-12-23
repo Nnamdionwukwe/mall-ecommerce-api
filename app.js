@@ -49,15 +49,20 @@ const MONGODB_URI =
   process.env.MONGO_URL ||
   "mongodb://mongo:PFunFtgHfjDjQAFpiSvtMIjNctaQOrtS@turntable.proxy.rlwy.net:10584";
 
+// mongoose
+//   .connect(MONGODB_URI, {
+//     serverSelectionTimeoutMS: 5000,
+//     socketTimeoutMS: 45000,
+//   })
+//   .then(() => console.log("✅ MongoDB connected"))
+//   .catch((err) => {
+//     console.error("❌ MongoDB connection error:", err);
+//   });
+
 mongoose
-  .connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
+  .connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
-  });
+  .catch((err) => console.log("❌ MongoDB error:", err));
 
 // Health check
 app.get("/health", (req, res) => {
