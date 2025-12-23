@@ -168,12 +168,22 @@ router.post("/login", async (req, res) => {
 // ========================================
 router.get("/me", auth, async (req, res) => {
   try {
+    console.log("🔍 Fetching user with ID:", req.user.userId);
     const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     res.json({
       success: true,
       data: user.toJSON(),
     });
   } catch (error) {
+    console.error("Error fetching user:", error);
     res.status(500).json({ error: "Server error", message: error.message });
   }
 });

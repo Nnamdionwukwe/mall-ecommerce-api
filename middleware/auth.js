@@ -1,5 +1,3 @@
-//
-
 const jwt = require("jsonwebtoken");
 
 const auth = (req, res, next) => {
@@ -8,26 +6,50 @@ const auth = (req, res, next) => {
 
     // Get token from header
     if (req.headers.authorization) {
-      token = req.headers.authorization.split(" ")[1];
+      // Expected format: "Bearer <token>"
+      const parts = req.headers.authorization.split(" ");
+      if (parts.length === 2 && parts[0] === "Bearer") {
+        token = parts[1];
+      }
     }
 
     if (!token) {
+      console.log("❌ No token provided");
       return res.status(401).json({
         success: false,
         message: "No authorization token provided",
       });
     }
 
+    console.log("🔑 Token found, verifying...");
+
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("✅ Token verified. Decoded:", decoded);
 
     req.user = {
-      id: decoded.id,
-      role: decoded.role,
+      userId: decoded.userId,
     };
 
+    console.log("👤 User attached to request:", req.user);
     next();
   } catch (error) {
+    console.error("❌ Auth error:", error.message);
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token has expired",
+      });
+    }
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
     res.status(401).json({
       success: false,
       message: "Invalid or expired token",
