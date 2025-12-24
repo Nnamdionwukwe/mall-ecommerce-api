@@ -77,7 +77,8 @@ try {
 
 try {
   console.log("📦 Loading cartRoutes...");
-  cartRoutes = require("./routes/cart");
+  // ✅ UPDATED: Changed from './routes/cart' to './routes/carts'
+  cartRoutes = require("./routes/carts");
   console.log("✅ cartRoutes loaded");
 } catch (e) {
   console.error("❌ Error loading cartRoutes:", e.message);
@@ -122,7 +123,8 @@ console.log("\n✅ All routes loaded!\n");
 // ================================================
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
-app.use("/api/cart", cartRoutes);
+// ✅ UPDATED: Changed from '/api/cart' to '/api/carts'
+app.use("/api/carts", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/checkout", checkoutRoutes);
@@ -145,12 +147,18 @@ app.get("/api/routes", (req, res) => {
     "POST /api/products",
     "PUT /api/products/:id",
     "DELETE /api/products/:id",
-    // Cart
-    "GET /api/cart",
-    "POST /api/cart/add",
-    "DELETE /api/cart/remove/:productId",
-    "PATCH /api/cart/update/:productId",
-    "DELETE /api/cart/clear",
+    // Cart - User Routes
+    "GET /api/carts",
+    "POST /api/carts/add",
+    "DELETE /api/carts/remove/:productId",
+    "PATCH /api/carts/update/:productId",
+    "DELETE /api/carts/clear",
+    "GET /api/carts/summary",
+    // Cart - Admin Routes
+    "GET /api/carts/admin/all-carts",
+    "GET /api/carts/admin/cart/:userId",
+    "GET /api/carts/admin/carts-summary",
+    "DELETE /api/carts/admin/cart/:userId",
     // Orders
     "POST /api/orders/verify-payment",
     "GET /api/orders",
