@@ -183,11 +183,11 @@ orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 
 // ================================================
-// PRE-SAVE MIDDLEWARE - FIXED
+// PRE-SAVE MIDDLEWARE - FIXED WITH ASYNC/AWAIT
 // ================================================
 
-// ✅ FIXED: Proper error handling in pre-save hook
-orderSchema.pre("save", function (next) {
+// ✅ FIXED: Using async/await (no next parameter needed)
+orderSchema.pre("save", async function () {
   try {
     console.log(
       `🔄 [Order pre-save] Updating timestamps for order: ${this.orderId}`
@@ -196,7 +196,7 @@ orderSchema.pre("save", function (next) {
     // Update the updatedAt timestamp
     this.updatedAt = new Date();
 
-    // ✅ FIXED: Check if paymentInfo exists before accessing it
+    // Check if paymentInfo exists before accessing it
     if (
       this.paymentInfo &&
       this.paymentInfo.status === "paid" &&
@@ -206,14 +206,10 @@ orderSchema.pre("save", function (next) {
       this.paymentInfo.paidAt = new Date();
     }
 
-    console.log(`✅ [Order pre-save] Pre-save complete, calling next()`);
-
-    // ✅ CRITICAL: Call next() to continue
-    next();
+    console.log(`✅ [Order pre-save] Pre-save complete`);
   } catch (error) {
     console.error(`❌ [Order pre-save] Error: ${error.message}`);
-    // ✅ Pass error to next()
-    next(error);
+    throw error;
   }
 });
 
