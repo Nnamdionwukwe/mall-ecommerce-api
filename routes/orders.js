@@ -362,6 +362,93 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   }
 });
 
+// // GET / - Get user's orders
+// router.get("/", auth, async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { page = 1, limit = 10, status } = req.query;
+
+//     let query = { userId };
+//     if (status) {
+//       query.status = status;
+//     }
+
+//     const orders = await Order.find(query)
+//       .sort({ createdAt: -1 })
+//       .limit(limit * 1)
+//       .skip((page - 1) * limit)
+//       .populate("items.productId")
+//       .populate("notes.createdBy", "name email");
+
+//     const total = await Order.countDocuments(query);
+
+//     return res.json({
+//       success: true,
+//       data: orders,
+//       pagination: {
+//         page: parseInt(page),
+//         limit: parseInt(limit),
+//         total,
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching orders:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error fetching orders",
+//       error: error.message,
+//     });
+//   }
+// });
+
+// GET /admin/all - Get ALL orders (admin only)
+// router.get("/admin/all", auth, isAdmin, async (req, res) => {
+//   try {
+//     console.log("🔍 [GET /admin/all] Fetching all orders for admin");
+
+//     const { page = 1, limit = 100, status } = req.query;
+
+//     let query = {};
+//     if (status && status !== "all") {
+//       query.status = status;
+//     }
+
+//     console.log("🔍 Query:", query);
+//     console.log("🔍 Page:", page, "Limit:", limit);
+
+//     const orders = await Order.find(query)
+//       .sort({ createdAt: -1 })
+//       .limit(limit * 1)
+//       .skip((page - 1) * limit)
+//       .populate("userId", "name email")
+//       .populate("items.productId", "name price");
+
+//     const total = await Order.countDocuments(query);
+
+//     console.log(`✅ Found ${orders.length} orders out of ${total} total`);
+
+//     return res.json({
+//       success: true,
+//       data: orders,
+//       pagination: {
+//         page: parseInt(page),
+//         limit: parseInt(limit),
+//         total,
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Error fetching all orders:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error fetching orders",
+//       error: error.message,
+//     });
+//   }
+// });
+
+// Keep your existing GET / route here (for user's own orders)
 // GET / - Get user's orders
 router.get("/", auth, async (req, res) => {
   try {
@@ -403,14 +490,13 @@ router.get("/", auth, async (req, res) => {
 });
 
 // GET /:orderId - Get single order by ID
-// ✅ FIXED: Using orderId field instead of _id
 router.get("/:orderId", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const userId = req.user.id;
 
     const order = await Order.findOne({
-      orderId: orderId,
+      _id: orderId,
       userId,
     })
       .populate("items.productId")
@@ -443,7 +529,6 @@ router.get("/:orderId", auth, async (req, res) => {
 });
 
 // POST /:orderId/notes - Add note to order (admin only)
-// ✅ FIXED: Using orderId field instead of _id
 router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -457,7 +542,7 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
       });
     }
 
-    const order = await Order.findOne({ orderId });
+    const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -485,7 +570,6 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
 });
 
 // PATCH /:orderId/status - Update order status (admin only)
-// ✅ FIXED: Using orderId field instead of _id
 router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -505,8 +589,8 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
       });
     }
 
-    const order = await Order.findOneAndUpdate(
-      { orderId },
+    const order = await Order.findByIdAndUpdate(
+      orderId,
       { status, updatedAt: new Date() },
       { new: true }
     );
@@ -534,14 +618,13 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
 });
 
 // PATCH /:orderId/delivery - Update delivery information (admin only)
-// ✅ FIXED: Using orderId field instead of _id
 router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { trackingNumber, estimatedDelivery, deliveredAt } = req.body;
 
-    const order = await Order.findOneAndUpdate(
-      { orderId },
+    const order = await Order.findByIdAndUpdate(
+      orderId,
       {
         trackingNumber,
         estimatedDelivery: estimatedDelivery
@@ -577,14 +660,13 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
 });
 
 // POST /:orderId/cancel - Cancel order (user)
-// ✅ FIXED: Using orderId field instead of _id
 router.post("/:orderId/cancel", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
     const userId = req.user.id;
 
-    const order = await Order.findOne({ orderId, userId });
+    const order = await Order.findOne({ _id: orderId, userId });
     if (!order) {
       return res.status(404).json({
         success: false,
