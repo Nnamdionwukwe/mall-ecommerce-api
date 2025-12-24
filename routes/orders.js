@@ -19,10 +19,9 @@ console.log(
 console.log("---\n");
 
 // ================================================
-// MIDDLEWARE DEFINITIONS - BEFORE ROUTES
+// MIDDLEWARE DEFINITIONS
 // ================================================
 
-// ✅ Define validateOrderData BEFORE using it
 const validateOrderData = (req, res, next) => {
   try {
     console.log("\n🔍 [validateOrderData] Middleware called");
@@ -100,9 +99,6 @@ const validateOrderData = (req, res, next) => {
     }
 
     console.log("✅ All order data validated successfully");
-    console.log("🔍 [validateOrderData] Calling next()...\n");
-
-    // ✅ CRITICAL: Call next()
     return next();
   } catch (error) {
     console.error("❌ [validateOrderData] Error:", error.message);
@@ -114,7 +110,7 @@ const validateOrderData = (req, res, next) => {
 };
 
 // ================================================
-// ROUTES
+// SPECIFIC ROUTES (BEFORE GENERIC ONES)
 // ================================================
 
 // POST /verify-payment - Verify payment and create order
@@ -142,7 +138,6 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
     console.log("User ID:", userId);
     console.log("Items count:", items.length);
 
-    // Verify with Paystack
     const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
     if (!paystackKey) {
@@ -192,7 +187,6 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
 
     console.log("✅ Payment verified successfully");
 
-    // ✅ CRITICAL: Validate items and update stock with proper await
     console.log("\n🔄 Validating cart items and updating stock...");
 
     for (const item of items) {
@@ -218,14 +212,12 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
       }
 
       console.log(`🔄 Decreasing stock for ${product.name}...`);
-      // ✅ CRITICAL: Use await since decreaseStock is now async
       await product.decreaseStock(item.quantity);
       console.log(`✅ Stock updated for ${product.name}`);
     }
 
     console.log("✅ All items validated and stock updated");
 
-    // Create order document
     console.log("\n🔄 Creating order in database...");
 
     console.log("📋 Order data being created:");
@@ -362,6 +354,92 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   }
 });
 
+// GET /stats/admin - Get order statistics (admin only)
+router.get("/stats/admin", auth, isAdmin, async (req, res) => {
+  try {
+    const stats = (await Order.getOrderStats?.()) || {
+      totalOrders: 0,
+      totalRevenue: 0,
+    };
+
+    return res.json({
+      success: true,
+      message: "All order statistics",
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching statistics",
+      error: error.message,
+    });
+  }
+});
+
+// GET /stats/user - Get user order statistics
+router.get("/stats/user", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const stats = (await Order.getOrderStats?.(userId)) || {
+      totalOrders: 0,
+      totalSpent: 0,
+    };
+
+    return res.json({
+      success: true,
+      message: "User order statistics",
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching user statistics",
+      error: error.message,
+    });
+  }
+});
+
+// GET /filter/status/:status - Get orders by status (admin only)
+router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
+  try {
+    const { status } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const orders = await Order.find({ status })
+      .skip((page - 1) * limit)
+      .limit(limit * 1)
+      .populate("items.productId")
+      .populate("userId", "name email");
+
+    const total = await Order.countDocuments({ status });
+
+    return res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error filtering orders:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error filtering orders",
+      error: error.message,
+    });
+  }
+});
+
+// ================================================
+// GENERIC ROUTES (AFTER SPECIFIC ONES)
+// ================================================
+
 // GET / - Get user's orders
 router.get("/", auth, async (req, res) => {
   try {
@@ -403,11 +481,13 @@ router.get("/", auth, async (req, res) => {
 });
 
 // GET /:orderId - Get single order by ID
-// ✅ FIXED: Using orderId field instead of _id
+// ✅ FIXED: Query by orderId field instead of _id
 router.get("/:orderId", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const userId = req.user.id;
+
+    console.log(`🔍 Fetching order: ${orderId} for user: ${userId}`);
 
     const order = await Order.findOne({
       orderId: orderId,
@@ -443,7 +523,7 @@ router.get("/:orderId", auth, async (req, res) => {
 });
 
 // POST /:orderId/notes - Add note to order (admin only)
-// ✅ FIXED: Using orderId field instead of _id
+// ✅ FIXED: Query by orderId field instead of _id
 router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -485,7 +565,7 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
 });
 
 // PATCH /:orderId/status - Update order status (admin only)
-// ✅ FIXED: Using orderId field instead of _id
+// ✅ FIXED: Query by orderId field instead of _id
 router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -534,7 +614,7 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
 });
 
 // PATCH /:orderId/delivery - Update delivery information (admin only)
-// ✅ FIXED: Using orderId field instead of _id
+// ✅ FIXED: Query by orderId field instead of _id
 router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -577,7 +657,7 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
 });
 
 // POST /:orderId/cancel - Cancel order (user)
-// ✅ FIXED: Using orderId field instead of _id
+// ✅ FIXED: Query by orderId field instead of _id
 router.post("/:orderId/cancel", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -605,13 +685,11 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     order.cancellationReason = reason || "User requested cancellation";
     await order.save();
 
-    // ✅ CRITICAL: Use await for stock restoration
     console.log("🔄 Restoring product stock on cancellation...");
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
         console.log(`📦 Restoring ${product.name} stock by ${item.quantity}`);
-        // ✅ Use await since increaseStock is now async
         await product.increaseStock(item.quantity);
         console.log(`✅ Stock restored for ${product.name}`);
       }
@@ -627,88 +705,6 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error cancelling order",
-      error: error.message,
-    });
-  }
-});
-
-// GET /filter/status/:status - Get orders by status (admin only)
-router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
-  try {
-    const { status } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-
-    const orders = await Order.find({ status })
-      .skip((page - 1) * limit)
-      .limit(limit * 1)
-      .populate("items.productId")
-      .populate("userId", "name email");
-
-    const total = await Order.countDocuments({ status });
-
-    return res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Error filtering orders:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error filtering orders",
-      error: error.message,
-    });
-  }
-});
-
-// GET /stats/admin - Get order statistics (admin only)
-router.get("/stats/admin", auth, isAdmin, async (req, res) => {
-  try {
-    const stats = (await Order.getOrderStats?.()) || {
-      totalOrders: 0,
-      totalRevenue: 0,
-    };
-
-    return res.json({
-      success: true,
-      message: "All order statistics",
-      data: stats,
-    });
-  } catch (error) {
-    console.error("Error fetching stats:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching statistics",
-      error: error.message,
-    });
-  }
-});
-
-// GET /stats/user - Get user order statistics
-router.get("/stats/user", auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const stats = (await Order.getOrderStats?.(userId)) || {
-      totalOrders: 0,
-      totalSpent: 0,
-    };
-
-    return res.json({
-      success: true,
-      message: "User order statistics",
-      data: stats,
-    });
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching user statistics",
       error: error.message,
     });
   }
