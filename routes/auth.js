@@ -15,9 +15,19 @@ if (!JWT_SECRET) {
 
 console.log("✅ JWT_SECRET loaded from environment");
 
-// Generate JWT token - FIXED: Takes userId, not whole user object
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+// ========================================
+// Generate JWT token - FIXED: Include id, email, and role
+// ========================================
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 };
 
 // ========================================
@@ -39,7 +49,6 @@ router.post("/test", (req, res) => {
 router.post("/register", async (req, res) => {
   try {
     console.log("📝 Register request received:", req.body);
-
     const { name, email, password, role } = req.body;
 
     // Validation
@@ -65,7 +74,6 @@ router.post("/register", async (req, res) => {
     // Create user
     console.log("📝 Creating user with data:", { name, email, role });
     console.log("🔑 Password length:", password.length);
-
     user = await User.create({
       name,
       email,
@@ -76,8 +84,8 @@ router.post("/register", async (req, res) => {
     console.log("✅ User created successfully:", user._id);
     console.log("👤 User object:", user.toJSON());
 
-    // Generate token - FIXED: Pass user._id, not user
-    const token = generateToken(user._id);
+    // ✅ FIXED: Pass entire user object, not just userId
+    const token = generateToken(user);
 
     res.status(201).json({
       success: true,
@@ -89,7 +97,6 @@ router.post("/register", async (req, res) => {
     console.error("❌ Register error:", error);
     console.error("Error message:", error.message);
     console.error("Error stack:", error.stack);
-
     res.status(500).json({
       success: false,
       message: "Error registering user",
@@ -104,7 +111,6 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
     console.log("🔐 Login attempt for email:", email);
 
     // Validation
@@ -118,7 +124,6 @@ router.post("/login", async (req, res) => {
     // Check for user and explicitly select password
     console.log("🔍 Looking for user...");
     const user = await User.findOne({ email }).select("+password");
-
     console.log("👤 User found:", user ? "Yes" : "No");
 
     if (!user) {
@@ -165,8 +170,11 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Generate token - FIXED: Pass user._id, not user
-    const token = generateToken(user._id);
+    // ✅ FIXED: Pass entire user object, not just userId
+    const token = generateToken(user);
+
+    console.log("✅ Token generated successfully");
+    console.log("👤 User role in token:", user.role);
 
     res.status(200).json({
       success: true,
@@ -178,7 +186,6 @@ router.post("/login", async (req, res) => {
     console.error("❌ Login error:", error);
     console.error("📋 Error message:", error.message);
     console.error("📋 Error stack:", error.stack);
-
     res.status(500).json({
       success: false,
       message: "Error logging in",
@@ -192,8 +199,8 @@ router.post("/login", async (req, res) => {
 // ========================================
 router.get("/me", auth, async (req, res) => {
   try {
-    console.log("🔍 Fetching user with ID:", req.user.userId);
-    const user = await User.findById(req.user.userId);
+    console.log("🔍 Fetching user with ID:", req.user.id);
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -230,20 +237,24 @@ router.put(
       }
 
       const updates = {};
+
       if (req.body.name) updates.name = req.body.name;
+
       if (req.body.email) {
         // Check if email is already taken
         const existingUser = await User.findOne({
           email: req.body.email,
-          _id: { $ne: req.user.userId },
+          _id: { $ne: req.user.id },
         });
+
         if (existingUser) {
           return res.status(400).json({ error: "Email already in use" });
         }
+
         updates.email = req.body.email;
       }
 
-      const user = await User.findByIdAndUpdate(req.user.userId, updates, {
+      const user = await User.findByIdAndUpdate(req.user.id, updates, {
         new: true,
         runValidators: true,
       });
@@ -283,11 +294,12 @@ router.put(
       const { currentPassword, newPassword } = req.body;
 
       // Verify current password
-      const user = await User.findById(req.user.userId).select("+password");
+      const user = await User.findById(req.user.id).select("+password");
       const isPasswordValid = await bcrypt.compare(
         currentPassword,
         user.password
       );
+
       if (!isPasswordValid) {
         return res.status(401).json({ error: "Current password is incorrect" });
       }
