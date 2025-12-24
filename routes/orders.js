@@ -362,6 +362,52 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   }
 });
 
+// GET /admin/all - Get ALL orders (admin only)
+router.get("/admin/all", auth, isAdmin, async (req, res) => {
+  try {
+    console.log("🔍 [GET /admin/all] Fetching all orders for admin");
+
+    const { page = 1, limit = 100, status } = req.query;
+
+    let query = {};
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    console.log("🔍 Query:", query);
+    console.log("🔍 Page:", page, "Limit:", limit);
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate("userId", "name email")
+      .populate("items.productId", "name price");
+
+    const total = await Order.countDocuments(query);
+
+    console.log(`✅ Found ${orders.length} orders out of ${total} total`);
+
+    return res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error fetching all orders:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching orders",
+      error: error.message,
+    });
+  }
+});
+
 // // GET / - Get user's orders
 // router.get("/", auth, async (req, res) => {
 //   try {
