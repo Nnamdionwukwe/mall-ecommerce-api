@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const auth = (req, res, next) => {
   try {
     let token;
+
     // Get token from header
     if (req.headers.authorization) {
       // Expected format: "Bearer <token>"
@@ -29,14 +30,15 @@ const auth = (req, res, next) => {
     // ✅ FIXED: Use 'id' property to match order routes
     // The decoded token should have one of these: id, _id, or userId
     req.user = {
-      id: decoded.id || decoded._id || decoded.userId, // ✅ Map to 'id'
+      id: decoded.id || decoded._id || decoded.userId,
       email: decoded.email,
       role: decoded.role,
-      userId: decoded.userId || decoded.id || decoded._id, // Also include userId for compatibility
+      userId: decoded.userId || decoded.id || decoded._id,
     };
 
     console.log("👤 User attached to request:", req.user);
     console.log("👤 User ID:", req.user.id);
+    console.log("👤 User Role:", req.user.role);
 
     next();
   } catch (error) {
@@ -66,19 +68,26 @@ const auth = (req, res, next) => {
 
 const isAdmin = (req, res, next) => {
   if (!req.user) {
+    console.log("❌ No user attached to request");
     return res.status(401).json({
       success: false,
       message: "Authentication required",
     });
   }
 
-  if (req.user.role !== "admin") {
+  console.log("🔍 Checking admin/vendor role. User role:", req.user.role);
+
+  if (req.user.role !== "admin" && req.user.role !== "vendor") {
+    console.log(
+      `❌ Access denied. User role is '${req.user.role}', must be 'admin' or 'vendor'`
+    );
     return res.status(403).json({
       success: false,
-      message: "Access denied. Admin role required",
+      message: "Access denied. Admin or Vendor role required",
     });
   }
 
+  console.log("✅ Admin/Vendor access granted");
   next();
 };
 
