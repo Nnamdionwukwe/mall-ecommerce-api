@@ -362,45 +362,45 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
   }
 });
 
-// GET / - Get user's orders
-router.get("/", auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { page = 1, limit = 10, status } = req.query;
+// // GET / - Get user's orders
+// router.get("/", auth, async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { page = 1, limit = 10, status } = req.query;
 
-    let query = { userId };
-    if (status) {
-      query.status = status;
-    }
+//     let query = { userId };
+//     if (status) {
+//       query.status = status;
+//     }
 
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate("items.productId")
-      .populate("notes.createdBy", "name email");
+//     const orders = await Order.find(query)
+//       .sort({ createdAt: -1 })
+//       .limit(limit * 1)
+//       .skip((page - 1) * limit)
+//       .populate("items.productId")
+//       .populate("notes.createdBy", "name email");
 
-    const total = await Order.countDocuments(query);
+//     const total = await Order.countDocuments(query);
 
-    return res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching orders",
-      error: error.message,
-    });
-  }
-});
+//     return res.json({
+//       success: true,
+//       data: orders,
+//       pagination: {
+//         page: parseInt(page),
+//         limit: parseInt(limit),
+//         total,
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching orders:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error fetching orders",
+//       error: error.message,
+//     });
+//   }
+// });
 
 // GET /admin/all - Get ALL orders (admin only)
 router.get("/admin/all", auth, isAdmin, async (req, res) => {
