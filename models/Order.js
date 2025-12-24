@@ -183,11 +183,39 @@ orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 
 // ================================================
-// NO PRE-SAVE HOOKS - Removed to avoid conflicts
+// PRE-SAVE MIDDLEWARE - FIXED
 // ================================================
-// Pre-save hooks were causing "next is not a function" errors
-// Timestamps are handled by the schema timestamps: true option
-// Payment info is set correctly when order is created
+
+// ✅ FIXED: Proper error handling in pre-save hook
+orderSchema.pre("save", function (next) {
+  try {
+    console.log(
+      `🔄 [Order pre-save] Updating timestamps for order: ${this.orderId}`
+    );
+
+    // Update the updatedAt timestamp
+    this.updatedAt = new Date();
+
+    // ✅ FIXED: Check if paymentInfo exists before accessing it
+    if (
+      this.paymentInfo &&
+      this.paymentInfo.status === "paid" &&
+      !this.paymentInfo.paidAt
+    ) {
+      console.log(`✅ [Order pre-save] Setting paidAt timestamp`);
+      this.paymentInfo.paidAt = new Date();
+    }
+
+    console.log(`✅ [Order pre-save] Pre-save complete, calling next()`);
+
+    // ✅ CRITICAL: Call next() to continue
+    next();
+  } catch (error) {
+    console.error(`❌ [Order pre-save] Error: ${error.message}`);
+    // ✅ Pass error to next()
+    next(error);
+  }
+});
 
 // ================================================
 // INSTANCE METHODS
