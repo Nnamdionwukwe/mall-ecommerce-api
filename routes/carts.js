@@ -34,6 +34,7 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
 
     const total = await Cart.countDocuments();
 
+    // ✅ FIXED: Changed from backtick template literal to regular console.log
     console.log(`✅ Found ${carts.length} carts out of ${total} total`);
 
     return res.json({
@@ -249,6 +250,7 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
 
     await cart.clearCart();
 
+    // ✅ FIXED: Changed from backtick template literal to regular console.log
     console.log(`✅ Cart cleared for user ${userId}`);
 
     return res.json({
@@ -286,10 +288,13 @@ router.get("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
+    console.log(`🔍 [GET /] Fetching cart for user: ${userId}`);
+
     let cart = await Cart.findOne({ userId }).populate("items.productId");
 
     if (!cart) {
       // Create new cart if doesn't exist
+      console.log(`📦 Creating new cart for user: ${userId}`);
       cart = await Cart.create({ userId, items: [] });
     }
 
@@ -321,6 +326,10 @@ router.post("/add", auth, async (req, res) => {
     const userId = req.user.id;
     const { productId, quantity = 1 } = req.body;
 
+    console.log(
+      `📝 [POST /add] Adding item to cart. User: ${userId}, Product: ${productId}, Quantity: ${quantity}`
+    );
+
     if (!productId) {
       return res.status(400).json({
         success: false,
@@ -331,11 +340,14 @@ router.post("/add", auth, async (req, res) => {
     // Validate product exists
     const product = await Product.findById(productId);
     if (!product) {
+      console.error(`❌ Product not found: ${productId}`);
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
+
+    console.log(`✅ Product found: ${product.name}`);
 
     // Validate quantity
     if (quantity <= 0) {
@@ -348,16 +360,28 @@ router.post("/add", auth, async (req, res) => {
     // Get or create cart
     let cart = await Cart.findOne({ userId });
     if (!cart) {
+      console.log(`📦 Creating new cart for user: ${userId}`);
       cart = await Cart.create({ userId, items: [] });
     }
 
+    console.log(`🔄 Adding item to cart...`);
+
     // Add item to cart
     await cart.addItem(product, quantity);
+
+    console.log(`✅ Item added. Saving cart...`);
+
+    // Save the cart
+    await cart.save();
 
     // Repopulate and get updated cart
     cart = await cart.populate("items.productId");
 
     const cartSummary = cart.getCartSummary();
+
+    console.log(
+      `✅ Cart updated successfully. Total items: ${cart.items.length}`
+    );
 
     res.status(200).json({
       success: true,
@@ -369,7 +393,7 @@ router.post("/add", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error adding to cart:", error);
+    console.error("❌ Error adding to cart:", error);
     res.status(500).json({
       success: false,
       message: "Error adding item to cart",
@@ -384,6 +408,10 @@ router.delete("/remove/:productId", auth, async (req, res) => {
     const userId = req.user.id;
     const { productId } = req.params;
 
+    console.log(
+      `🗑️ [DELETE /remove] Removing item. User: ${userId}, Product: ${productId}`
+    );
+
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res.status(404).json({
@@ -393,8 +421,11 @@ router.delete("/remove/:productId", auth, async (req, res) => {
     }
 
     await cart.removeItem(productId);
+    await cart.save();
 
     const cartSummary = cart.getCartSummary();
+
+    console.log(`✅ Item removed successfully`);
 
     res.json({
       success: true,
@@ -422,6 +453,10 @@ router.patch("/update/:productId", auth, async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body;
 
+    console.log(
+      `📝 [PATCH /update] Updating quantity. User: ${userId}, Product: ${productId}, Quantity: ${quantity}`
+    );
+
     if (!quantity || quantity <= 0) {
       return res.status(400).json({
         success: false,
@@ -438,8 +473,11 @@ router.patch("/update/:productId", auth, async (req, res) => {
     }
 
     await cart.updateQuantity(productId, quantity);
+    await cart.save();
 
     const cartSummary = cart.getCartSummary();
+
+    console.log(`✅ Quantity updated successfully`);
 
     res.json({
       success: true,
@@ -465,6 +503,8 @@ router.delete("/clear", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
+    console.log(`🗑️ [DELETE /clear] Clearing entire cart for user: ${userId}`);
+
     const cart = await Cart.findOne({ userId });
     if (!cart) {
       return res.status(404).json({
@@ -474,6 +514,9 @@ router.delete("/clear", auth, async (req, res) => {
     }
 
     await cart.clearCart();
+    await cart.save();
+
+    console.log(`✅ Cart cleared successfully`);
 
     res.json({
       success: true,
@@ -502,6 +545,8 @@ router.delete("/clear", auth, async (req, res) => {
 router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
+
+    console.log(`📊 [GET /summary] Fetching cart summary for user: ${userId}`);
 
     const cart = await Cart.findOne({ userId });
     if (!cart) {
