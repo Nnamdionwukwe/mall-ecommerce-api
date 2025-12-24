@@ -78,6 +78,30 @@ const isAdmin = (req, res, next) => {
     });
   }
 
+  // Existing isAdmin middleware
+  const isAdmin = (req, res, next) => {
+    if (req.user && req.user.role === "admin") {
+      next();
+    } else {
+      res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+  };
+
+  // New middleware for admin OR vendor access
+  const isAdminOrVendor = (req, res, next) => {
+    if (req.user && (req.user.role === "admin" || req.user.role === "vendor")) {
+      next();
+    } else {
+      res.status(403).json({
+        success: false,
+        message: "Access denied. Admin or Vendor only.",
+      });
+    }
+  };
+
   // ✅ Check if user is admin
   if (req.user.role !== "admin") {
     return res.status(403).json({
@@ -112,4 +136,4 @@ const isVendor = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, isAdmin, isVendor };
+module.exports = { auth, isAdmin, isVendor, isAdminOrVendor };
