@@ -1,5 +1,3 @@
-const express = require("express");
-const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
@@ -247,8 +245,9 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    // Clear cart and save
+    // Clear cart, calculate totals, and save
     cart.clearCart();
+    cart.calculateTotals();
     await cart.save();
 
     console.log(`✅ Cart cleared for user ${userId}`);
@@ -366,8 +365,9 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`🔄 Adding item to cart...`);
 
-    // Add item to cart and save
+    // Add item to cart, calculate totals, and save
     cart.addItem(product, quantity);
+    cart.calculateTotals();
     await cart.save();
 
     console.log(`✅ Item added. Cart saved.`);
@@ -418,8 +418,9 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       });
     }
 
-    // Remove item and save
+    // Remove item, calculate totals, and save
     cart.removeItem(productId);
+    cart.calculateTotals();
     await cart.save();
 
     const cartSummary = cart.getCartSummary();
@@ -471,8 +472,9 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
-    // Update quantity and save
+    // Update quantity, calculate totals, and save
     cart.updateQuantity(productId, quantity);
+    cart.calculateTotals();
     await cart.save();
 
     const cartSummary = cart.getCartSummary();
@@ -513,8 +515,9 @@ router.delete("/clear", auth, async (req, res) => {
       });
     }
 
-    // Clear cart and save
+    // Clear cart, calculate totals, and save
     cart.clearCart();
+    cart.calculateTotals();
     await cart.save();
 
     console.log(`✅ Cart cleared successfully`);
