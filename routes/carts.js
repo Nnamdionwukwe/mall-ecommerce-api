@@ -434,6 +434,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
 });
 
 // PATCH /update/:productId - Update item quantity
+// PATCH /update/:productId - Update item quantity
 router.patch("/update/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -459,6 +460,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
+    // ✅ THIS IS KEY - updateQuantity should ONLY update the quantity, not add a new item
     cart.updateQuantity(productId, quantity);
     cart.calculateTotals();
     await cart.save();
@@ -477,7 +479,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error updating cart:", error);
+    console.error("Error updating cart:", error);
     res.status(500).json({
       success: false,
       message: "Error updating cart",
