@@ -1,3 +1,5 @@
+const express = require("express");
+const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
@@ -16,7 +18,6 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
 
-    // Get all carts with user and product details
     const carts = await Cart.find()
       .populate({
         path: "userId",
@@ -64,7 +65,7 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/cart/:userId - Get specific user's cart with full details and products
+// GET /admin/cart/:userId - Get specific user's cart
 router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -73,7 +74,6 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       `🔍 [GET /admin/cart/:userId] Fetching cart for user: ${userId}`
     );
 
-    // Verify user exists
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -82,7 +82,6 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    // Get user's cart with populated product details
     let cart = await Cart.findOne({ userId }).populate(
       "items.productId",
       "name price images description stock vendor vendorId category"
@@ -116,10 +115,8 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    // Get cart summary
     const cartSummary = cart.getCartSummary();
 
-    // Enrich items with product details
     const enrichedItems = cart.items.map((item) => ({
       productId: item.productId._id,
       name: item.productId.name,
@@ -172,14 +169,12 @@ router.get("/admin/carts-summary", auth, isAdmin, async (req, res) => {
   try {
     console.log("🔍 [GET /admin/carts-summary] Fetching cart summary");
 
-    // Get carts with items
     const cartsWithItems = await Cart.countDocuments({
       "items.0": { $exists: true },
     });
     const totalCarts = await Cart.countDocuments();
     const emptyCarts = totalCarts - cartsWithItems;
 
-    // Get total items across all carts
     const cartStats = await Cart.aggregate([
       {
         $group: {
@@ -245,7 +240,6 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    // Clear cart, calculate totals, and save
     cart.clearCart();
     cart.calculateTotals();
     await cart.save();
@@ -279,10 +273,10 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
 });
 
 // ================================================
-// USER ROUTES - GET OWN CART (Existing functionality)
+// USER ROUTES - GET OWN CART
 // ================================================
 
-// Get user's cart
+// GET / - Get user's cart
 router.get("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -292,7 +286,6 @@ router.get("/", auth, async (req, res) => {
     let cart = await Cart.findOne({ userId }).populate("items.productId");
 
     if (!cart) {
-      // Create new cart if doesn't exist
       console.log(`📦 Creating new cart for user: ${userId}`);
       cart = await Cart.create({ userId, items: [] });
     }
@@ -310,7 +303,7 @@ router.get("/", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching cart:", error);
+    console.error("❌ Error fetching cart:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching cart",
@@ -319,7 +312,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// Add item to cart
+// POST /add - Add item to cart
 router.post("/add", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -336,7 +329,6 @@ router.post("/add", auth, async (req, res) => {
       });
     }
 
-    // Validate product exists
     const product = await Product.findById(productId);
     if (!product) {
       console.error(`❌ Product not found: ${productId}`);
@@ -348,7 +340,6 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`✅ Product found: ${product.name}`);
 
-    // Validate quantity
     if (quantity <= 0) {
       return res.status(400).json({
         success: false,
@@ -356,7 +347,6 @@ router.post("/add", auth, async (req, res) => {
       });
     }
 
-    // Get or create cart
     let cart = await Cart.findOne({ userId });
     if (!cart) {
       console.log(`📦 Creating new cart for user: ${userId}`);
@@ -365,14 +355,12 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`🔄 Adding item to cart...`);
 
-    // Add item to cart, calculate totals, and save
     cart.addItem(product, quantity);
     cart.calculateTotals();
     await cart.save();
 
-    console.log(`✅ Item added. Cart saved.`);
+    console.log(`✅ Item added. Saving cart...`);
 
-    // Repopulate and get updated cart
     cart = await cart.populate("items.productId");
 
     const cartSummary = cart.getCartSummary();
@@ -400,7 +388,7 @@ router.post("/add", auth, async (req, res) => {
   }
 });
 
-// Remove item from cart
+// DELETE /remove/:productId - Remove item from cart
 router.delete("/remove/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -418,7 +406,6 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       });
     }
 
-    // Remove item, calculate totals, and save
     cart.removeItem(productId);
     cart.calculateTotals();
     await cart.save();
@@ -437,7 +424,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error removing from cart:", error);
+    console.error("❌ Error removing from cart:", error);
     res.status(500).json({
       success: false,
       message: "Error removing item from cart",
@@ -446,7 +433,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
   }
 });
 
-// Update item quantity
+// PATCH /update/:productId - Update item quantity
 router.patch("/update/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -472,7 +459,6 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
-    // Update quantity, calculate totals, and save
     cart.updateQuantity(productId, quantity);
     cart.calculateTotals();
     await cart.save();
@@ -491,7 +477,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating cart:", error);
+    console.error("❌ Error updating cart:", error);
     res.status(500).json({
       success: false,
       message: "Error updating cart",
@@ -500,7 +486,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
   }
 });
 
-// Clear cart
+// DELETE /clear - Clear entire cart
 router.delete("/clear", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -515,7 +501,6 @@ router.delete("/clear", auth, async (req, res) => {
       });
     }
 
-    // Clear cart, calculate totals, and save
     cart.clearCart();
     cart.calculateTotals();
     await cart.save();
@@ -536,7 +521,7 @@ router.delete("/clear", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error clearing cart:", error);
+    console.error("❌ Error clearing cart:", error);
     res.status(500).json({
       success: false,
       message: "Error clearing cart",
@@ -545,7 +530,7 @@ router.delete("/clear", auth, async (req, res) => {
   }
 });
 
-// Get cart summary
+// GET /summary - Get cart summary
 router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -574,7 +559,7 @@ router.get("/summary", auth, async (req, res) => {
       data: cartSummary,
     });
   } catch (error) {
-    console.error("Error fetching cart summary:", error);
+    console.error("❌ Error fetching cart summary:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching cart summary",
