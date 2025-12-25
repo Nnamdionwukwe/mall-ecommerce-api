@@ -28,7 +28,7 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ NO PRE-SAVE HOOK - Calculate totals manually with a method
+// Calculate totals manually
 cartSchema.methods.calculateTotals = function () {
   this.totalItems = this.items.reduce(
     (sum, item) => sum + (item.quantity || 0),
@@ -41,31 +41,34 @@ cartSchema.methods.calculateTotals = function () {
   return this;
 };
 
-// Method to add item to cart - ONLY add if not exists, otherwise increase quantity
+// Add item to cart - ONLY adds if not exists, updates quantity if exists
 cartSchema.methods.addItem = function (product, quantity = 1) {
+  const productIdStr = product._id.toString();
   console.log(
-    `[addItem] Adding product: ${product.name} (ID: ${product._id}), Quantity: ${quantity}`
+    `[addItem] Adding product ID: ${productIdStr}, Name: ${product.name}, Qty: ${quantity}`
   );
 
-  let existingItem = null;
+  // Search for existing item
+  let found = false;
+  for (let i = 0; i < this.items.length; i++) {
+    const itemProductIdStr = this.items[i].productId.toString();
+    console.log(`[addItem] Comparing: ${itemProductIdStr} vs ${productIdStr}`);
 
-  // Find existing item by comparing string IDs
-  this.items.forEach((item) => {
-    const itemProductId = item.productId.toString();
-    const compareProductId = product._id.toString();
-
-    if (itemProductId === compareProductId) {
-      existingItem = item;
+    if (itemProductIdStr === productIdStr) {
+      console.log(
+        `[addItem] ✅ FOUND! Updating quantity from ${
+          this.items[i].quantity
+        } to ${this.items[i].quantity + quantity}`
+      );
+      this.items[i].quantity += quantity;
+      found = true;
+      break;
     }
-  });
+  }
 
-  if (existingItem) {
-    console.log(
-      `[addItem] ✅ Item already exists. Old quantity: ${existingItem.quantity}, Adding: ${quantity}`
-    );
-    existingItem.quantity += quantity;
-  } else {
-    console.log(`[addItem] ➕ Item doesn't exist, creating new entry`);
+  // Only add new item if NOT found
+  if (!found) {
+    console.log(`[addItem] ➕ Not found, adding new item`);
     this.items.push({
       productId: product._id,
       name: product.name,
@@ -79,58 +82,69 @@ cartSchema.methods.addItem = function (product, quantity = 1) {
   return this;
 };
 
-// Method to remove item from cart
+// Remove item from cart
 cartSchema.methods.removeItem = function (productId) {
-  this.items = this.items.filter(
-    (item) => item.productId.toString() !== productId.toString()
-  );
+  const productIdStr = productId.toString();
+  console.log(`[removeItem] Removing product ID: ${productIdStr}`);
 
+  const initialLength = this.items.length;
+  this.items = this.items.filter((item) => {
+    const itemProductIdStr = item.productId.toString();
+    return itemProductIdStr !== productIdStr;
+  });
+
+  console.log(
+    `[removeItem] Items before: ${initialLength}, Items after: ${this.items.length}`
+  );
   return this;
 };
 
-// Method to update item quantity - ONLY update, never add new items
-cartSchema.methods.updateQuantity = function (productId, quantity) {
+// Update item quantity - ONLY updates existing items
+cartSchema.methods.updateQuantity = function (productId, newQuantity) {
+  const productIdStr = productId.toString();
   console.log(
-    `[updateQuantity] Looking for product: ${productId}, Setting quantity to: ${quantity}`
+    `[updateQuantity] Updating product ID: ${productIdStr}, New quantity: ${newQuantity}`
   );
 
-  if (quantity <= 0) {
+  if (newQuantity <= 0) {
+    console.log(`[updateQuantity] Quantity <= 0, removing item`);
     return this.removeItem(productId);
   }
 
-  // Find the item by comparing string versions of IDs
   let found = false;
-  this.items.forEach((item) => {
-    const itemProductId = item.productId.toString();
-    const compareProductId = productId.toString();
-
+  for (let i = 0; i < this.items.length; i++) {
+    const itemProductIdStr = this.items[i].productId.toString();
     console.log(
-      `[updateQuantity] Comparing: ${itemProductId} === ${compareProductId}`
+      `[updateQuantity] Comparing: ${itemProductIdStr} vs ${productIdStr}`
     );
 
-    if (itemProductId === compareProductId) {
+    if (itemProductIdStr === productIdStr) {
       console.log(
-        `[updateQuantity] ✅ Found item! Old quantity: ${item.quantity}, New quantity: ${quantity}`
+        `[updateQuantity] ✅ FOUND! Updating quantity from ${this.items[i].quantity} to ${newQuantity}`
       );
-      item.quantity = quantity;
+      this.items[i].quantity = newQuantity;
       found = true;
+      break;
     }
-  });
+  }
 
   if (!found) {
-    console.warn(`[updateQuantity] ⚠️ Product not found in cart: ${productId}`);
+    console.warn(
+      `[updateQuantity] ⚠️ Product not found in cart: ${productIdStr}`
+    );
   }
 
   return this;
 };
 
-// Method to clear cart
+// Clear cart
 cartSchema.methods.clearCart = function () {
+  console.log(`[clearCart] Clearing all ${this.items.length} items`);
   this.items = [];
   return this;
 };
 
-// Method to get cart summary
+// Get cart summary
 cartSchema.methods.getCartSummary = function () {
   const subtotal = this.totalPrice || 0;
   const shipping = subtotal > 100 ? 0 : 10;
