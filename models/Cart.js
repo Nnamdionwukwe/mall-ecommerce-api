@@ -41,15 +41,31 @@ cartSchema.methods.calculateTotals = function () {
   return this;
 };
 
-// Method to add item to cart
+// Method to add item to cart - ONLY add if not exists, otherwise increase quantity
 cartSchema.methods.addItem = function (product, quantity = 1) {
-  const existingItem = this.items.find(
-    (item) => item.productId.toString() === product._id.toString()
+  console.log(
+    `[addItem] Adding product: ${product.name} (ID: ${product._id}), Quantity: ${quantity}`
   );
 
+  let existingItem = null;
+
+  // Find existing item by comparing string IDs
+  this.items.forEach((item) => {
+    const itemProductId = item.productId.toString();
+    const compareProductId = product._id.toString();
+
+    if (itemProductId === compareProductId) {
+      existingItem = item;
+    }
+  });
+
   if (existingItem) {
+    console.log(
+      `[addItem] ✅ Item already exists. Old quantity: ${existingItem.quantity}, Adding: ${quantity}`
+    );
     existingItem.quantity += quantity;
   } else {
+    console.log(`[addItem] ➕ Item doesn't exist, creating new entry`);
     this.items.push({
       productId: product._id,
       name: product.name,
@@ -72,18 +88,37 @@ cartSchema.methods.removeItem = function (productId) {
   return this;
 };
 
-// Method to update item quantity
+// Method to update item quantity - ONLY update, never add new items
 cartSchema.methods.updateQuantity = function (productId, quantity) {
+  console.log(
+    `[updateQuantity] Looking for product: ${productId}, Setting quantity to: ${quantity}`
+  );
+
   if (quantity <= 0) {
     return this.removeItem(productId);
   }
 
-  const item = this.items.find(
-    (item) => item.productId.toString() === productId.toString()
-  );
+  // Find the item by comparing string versions of IDs
+  let found = false;
+  this.items.forEach((item) => {
+    const itemProductId = item.productId.toString();
+    const compareProductId = productId.toString();
 
-  if (item) {
-    item.quantity = quantity;
+    console.log(
+      `[updateQuantity] Comparing: ${itemProductId} === ${compareProductId}`
+    );
+
+    if (itemProductId === compareProductId) {
+      console.log(
+        `[updateQuantity] ✅ Found item! Old quantity: ${item.quantity}, New quantity: ${quantity}`
+      );
+      item.quantity = quantity;
+      found = true;
+    }
+  });
+
+  if (!found) {
+    console.warn(`[updateQuantity] ⚠️ Product not found in cart: ${productId}`);
   }
 
   return this;

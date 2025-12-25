@@ -434,7 +434,6 @@ router.delete("/remove/:productId", auth, async (req, res) => {
 });
 
 // PATCH /update/:productId - Update item quantity
-// PATCH /update/:productId - Update item quantity
 router.patch("/update/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
