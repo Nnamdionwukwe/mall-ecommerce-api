@@ -28,17 +28,25 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Calculate totals before saving
+// ✅ FIXED: Use proper function syntax (not arrow) with error handling
 cartSchema.pre("save", function (next) {
-  this.totalItems = this.items.reduce((sum, item) => sum + item.quantity, 0);
-  this.totalPrice = this.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  next();
+  try {
+    this.totalItems = this.items.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
+    this.totalPrice = this.items.reduce(
+      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+      0
+    );
+    next();
+  } catch (error) {
+    console.error("❌ Error in pre-save hook:", error);
+    next(error);
+  }
 });
 
-// Method to add item to cart (don't save here, let the route handle it)
+// Method to add item to cart
 cartSchema.methods.addItem = function (product, quantity = 1) {
   const existingItem = this.items.find(
     (item) => item.productId.toString() === product._id.toString()
@@ -57,20 +65,19 @@ cartSchema.methods.addItem = function (product, quantity = 1) {
     });
   }
 
-  // Return the cart object, not a promise
   return this;
 };
 
-// Method to remove item from cart (don't save here)
+// Method to remove item from cart
 cartSchema.methods.removeItem = function (productId) {
   this.items = this.items.filter(
     (item) => item.productId.toString() !== productId.toString()
   );
-  // Return the cart object, not a promise
+
   return this;
 };
 
-// Method to update item quantity (don't save here)
+// Method to update item quantity
 cartSchema.methods.updateQuantity = function (productId, quantity) {
   if (quantity <= 0) {
     return this.removeItem(productId);
@@ -84,31 +91,29 @@ cartSchema.methods.updateQuantity = function (productId, quantity) {
     item.quantity = quantity;
   }
 
-  // Return the cart object, not a promise
   return this;
 };
 
-// Method to clear cart (don't save here)
+// Method to clear cart
 cartSchema.methods.clearCart = function () {
   this.items = [];
-  // Return the cart object, not a promise
   return this;
 };
 
 // Method to get cart summary
 cartSchema.methods.getCartSummary = function () {
-  const subtotal = this.totalPrice;
+  const subtotal = this.totalPrice || 0;
   const shipping = subtotal > 100 ? 0 : 10;
   const tax = subtotal * 0.1;
   const total = subtotal + shipping + tax;
 
   return {
     items: this.items,
-    subtotal,
+    subtotal: parseFloat(subtotal.toFixed(2)),
     shipping,
-    tax,
-    total,
-    itemCount: this.totalItems,
+    tax: parseFloat(tax.toFixed(2)),
+    total: parseFloat(total.toFixed(2)),
+    itemCount: this.totalItems || 0,
   };
 };
 
