@@ -38,7 +38,7 @@ cartSchema.pre("save", function (next) {
   next();
 });
 
-// Method to add item to cart
+// Method to add item to cart (don't save here, let the route handle it)
 cartSchema.methods.addItem = function (product, quantity = 1) {
   const existingItem = this.items.find(
     (item) => item.productId.toString() === product._id.toString()
@@ -56,18 +56,21 @@ cartSchema.methods.addItem = function (product, quantity = 1) {
       images: product.images || [],
     });
   }
-  return this.save();
+
+  // Return the cart object, not a promise
+  return this;
 };
 
-// Method to remove item from cart
+// Method to remove item from cart (don't save here)
 cartSchema.methods.removeItem = function (productId) {
   this.items = this.items.filter(
     (item) => item.productId.toString() !== productId.toString()
   );
-  return this.save();
+  // Return the cart object, not a promise
+  return this;
 };
 
-// Method to update item quantity
+// Method to update item quantity (don't save here)
 cartSchema.methods.updateQuantity = function (productId, quantity) {
   if (quantity <= 0) {
     return this.removeItem(productId);
@@ -79,15 +82,17 @@ cartSchema.methods.updateQuantity = function (productId, quantity) {
 
   if (item) {
     item.quantity = quantity;
-    return this.save();
   }
-  return Promise.resolve(this);
+
+  // Return the cart object, not a promise
+  return this;
 };
 
-// Method to clear cart
+// Method to clear cart (don't save here)
 cartSchema.methods.clearCart = function () {
   this.items = [];
-  return this.save();
+  // Return the cart object, not a promise
+  return this;
 };
 
 // Method to get cart summary
