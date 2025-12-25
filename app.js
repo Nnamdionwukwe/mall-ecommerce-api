@@ -1,40 +1,64 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
 require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const mongoSanitize = require("express-mongo-sanitize");
+const helmet = require("helmet");
+
 const app = express();
 
 // ================================================
-// CORS CONFIGURATION
+// MIDDLEWARE
 // ================================================
+
+// Security middleware
+app.use(helmet());
+app.use(mongoSanitize());
+
+// CORS
 app.use(
   cors({
     origin: [
+      "http://localhost:5173",
       "http://localhost:3000",
-      "http://localhost:3001",
-      "https://mall-ecommerce-frontend2.vercel.app",
+      "https://your-frontend-domain.com", // Update with your domain
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing with size limits to prevent memory issues
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // ================================================
 // DATABASE CONNECTION
 // ================================================
-const MONGODB_URI = process.env.MONGODB_URI;
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.error("❌ MongoDB error:", err.message));
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(
+      process.env.MONGODB_URI || "mongodb://localhost:27017/ecommerce",
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        maxPoolSize: 5, // Limit connections to prevent memory issues
+        serverSelectionTimeoutMS: 5000,
+      }
+    );
+    console.log("✅ MongoDB connected successfully");
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error.message);
+    process.exit(1);
+  }
+};
+
+connectDB();
 
 // ================================================
-// HEALTH CHECK - FIRST ENDPOINT
+// HEALTH CHECK ROUTE
 // ================================================
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
@@ -44,169 +68,88 @@ app.get("/api/health", (req, res) => {
 });
 
 // ================================================
-// ROUTES IMPORT WITH ERROR HANDLING
+// ROUTES
 // ================================================
-console.log("\n🔍 Loading routes...\n");
 
-let authRoutes,
-  productRoutes,
-  cartRoutes,
-  orderRoutes,
-  supportRoutes,
-  checkoutRoutes;
+// Import routes
+const authRoutes = require("./routes/auth");
+const productRoutes = require("./routes/products");
+const cartRoutes = require("./routes/carts");
+const orderRoutes = require("./routes/orders");
+const userRoutes = require("./routes/users");
 
-try {
-  console.log("📦 Loading authRoutes...");
-  authRoutes = require("./routes/auth");
-  console.log("✅ authRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading authRoutes:", e.message);
-  authRoutes = (req, res) =>
-    res.status(500).json({ error: "Auth routes failed to load" });
-}
-
-try {
-  console.log("📦 Loading productRoutes...");
-  productRoutes = require("./routes/products");
-  console.log("✅ productRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading productRoutes:", e.message);
-  productRoutes = (req, res) =>
-    res.status(500).json({ error: "Product routes failed to load" });
-}
-
-try {
-  console.log("📦 Loading cartRoutes...");
-  // ✅ UPDATED: Changed from './routes/cart' to './routes/carts'
-  cartRoutes = require("./routes/carts");
-  console.log("✅ cartRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading cartRoutes:", e.message);
-  cartRoutes = (req, res) =>
-    res.status(500).json({ error: "Cart routes failed to load" });
-}
-
-try {
-  console.log("📦 Loading orderRoutes...");
-  orderRoutes = require("./routes/orders");
-  console.log("✅ orderRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading orderRoutes:", e.message);
-  orderRoutes = (req, res) =>
-    res.status(500).json({ error: "Order routes failed to load" });
-}
-
-try {
-  console.log("📦 Loading supportRoutes...");
-  supportRoutes = require("./routes/support");
-  console.log("✅ supportRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading supportRoutes:", e.message);
-  supportRoutes = (req, res) =>
-    res.status(500).json({ error: "Support routes failed to load" });
-}
-
-try {
-  console.log("📦 Loading checkoutRoutes...");
-  checkoutRoutes = require("./routes/checkout");
-  console.log("✅ checkoutRoutes loaded");
-} catch (e) {
-  console.error("❌ Error loading checkoutRoutes:", e.message);
-  checkoutRoutes = (req, res) =>
-    res.status(500).json({ error: "Checkout routes failed to load" });
-}
-
-console.log("\n✅ All routes loaded!\n");
-
-// ================================================
-// ROUTE SETUP
-// ================================================
+// Use routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
-// ✅ UPDATED: Changed from '/api/cart' to '/api/carts'
 app.use("/api/carts", cartRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/support", supportRoutes);
-app.use("/api/checkout", checkoutRoutes);
+app.use("/api/users", userRoutes);
 
 // ================================================
-// ROUTES LIST (FOR DEBUGGING)
+// ERROR HANDLING
 // ================================================
-app.get("/api/routes", (req, res) => {
-  const routes = [
-    // Auth
-    "POST /api/auth/register",
-    "POST /api/auth/login",
-    "GET /api/auth/me",
-    "PATCH /api/auth/profile",
-    "POST /api/auth/change-password",
-    "POST /api/auth/logout",
-    // Products
-    "GET /api/products",
-    "GET /api/products/:id",
-    "POST /api/products",
-    "PUT /api/products/:id",
-    "DELETE /api/products/:id",
-    // Cart - User Routes
-    "GET /api/carts",
-    "POST /api/carts/add",
-    "DELETE /api/carts/remove/:productId",
-    "PATCH /api/carts/update/:productId",
-    "DELETE /api/carts/clear",
-    "GET /api/carts/summary",
-    // Cart - Admin Routes
-    "GET /api/carts/admin/all-carts",
-    "GET /api/carts/admin/cart/:userId",
-    "GET /api/carts/admin/carts-summary",
-    "DELETE /api/carts/admin/cart/:userId",
-    // Orders
-    "POST /api/orders/verify-payment",
-    "GET /api/orders",
-    "GET /api/orders/:orderId",
-    "POST /api/orders/:orderId/cancel",
-  ];
-  res.json({
-    success: true,
-    message: "Available API routes",
-    routes,
-    total: routes.length,
-  });
-});
 
-// ================================================
-// 404 HANDLER
-// ================================================
+// 404 handler
 app.use((req, res) => {
-  console.log("❌ 404 - Route not found:", req.method, req.path);
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.path}`);
   res.status(404).json({
     success: false,
-    error: "Route not found",
+    message: "Route not found",
     path: req.path,
-    method: req.method,
-    hint: "Visit /api/routes to see all available endpoints",
   });
 });
 
-// ================================================
-// ERROR HANDLER
-// ================================================
-app.use((error, req, res, next) => {
-  console.error("❌ Error:", error.message);
-  res.status(error.status || 500).json({
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.message);
+
+  res.status(err.status || 500).json({
     success: false,
-    message: error.message || "Internal server error",
+    message: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
 // ================================================
 // SERVER START
 // ================================================
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("\n========================================");
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
-  console.log(`📋 Routes: http://localhost:${PORT}/api/routes`);
-  console.log("========================================\n");
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("⚠️ SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("✅ Server closed");
+    mongoose.connection.close(false, () => {
+      console.log("✅ MongoDB connection closed");
+      process.exit(0);
+    });
+  });
 });
+
+process.on("SIGINT", () => {
+  console.log("⚠️ SIGINT received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("✅ Server closed");
+    mongoose.connection.close(false, () => {
+      console.log("✅ MongoDB connection closed");
+      process.exit(0);
+    });
+  });
+});
+
+// Start server
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 API URL: http://localhost:${PORT}/api`);
+  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (err) => {
+  console.error("❌ Unhandled Rejection:", err);
+  // Don't exit on unhandled rejection - just log it
+});
+
+module.exports = app;
