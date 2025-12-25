@@ -34,7 +34,6 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
 
     const total = await Cart.countDocuments();
 
-    // ✅ FIXED: Changed from backtick template literal to regular console.log
     console.log(`✅ Found ${carts.length} carts out of ${total} total`);
 
     return res.json({
@@ -248,9 +247,10 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    await cart.clearCart();
+    // Clear cart and save
+    cart.clearCart();
+    await cart.save();
 
-    // ✅ FIXED: Changed from backtick template literal to regular console.log
     console.log(`✅ Cart cleared for user ${userId}`);
 
     return res.json({
@@ -366,13 +366,11 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`🔄 Adding item to cart...`);
 
-    // Add item to cart
-    await cart.addItem(product, quantity);
-
-    console.log(`✅ Item added. Saving cart...`);
-
-    // Save the cart
+    // Add item to cart and save
+    cart.addItem(product, quantity);
     await cart.save();
+
+    console.log(`✅ Item added. Cart saved.`);
 
     // Repopulate and get updated cart
     cart = await cart.populate("items.productId");
@@ -420,7 +418,8 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       });
     }
 
-    await cart.removeItem(productId);
+    // Remove item and save
+    cart.removeItem(productId);
     await cart.save();
 
     const cartSummary = cart.getCartSummary();
@@ -472,7 +471,8 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
-    await cart.updateQuantity(productId, quantity);
+    // Update quantity and save
+    cart.updateQuantity(productId, quantity);
     await cart.save();
 
     const cartSummary = cart.getCartSummary();
@@ -513,7 +513,8 @@ router.delete("/clear", auth, async (req, res) => {
       });
     }
 
-    await cart.clearCart();
+    // Clear cart and save
+    cart.clearCart();
     await cart.save();
 
     console.log(`✅ Cart cleared successfully`);
