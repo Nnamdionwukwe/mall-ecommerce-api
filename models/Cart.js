@@ -28,23 +28,18 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ FIXED: Use proper function syntax (not arrow) with error handling
-cartSchema.pre("save", function (next) {
-  try {
-    this.totalItems = this.items.reduce(
-      (sum, item) => sum + (item.quantity || 0),
-      0
-    );
-    this.totalPrice = this.items.reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-      0
-    );
-    next();
-  } catch (error) {
-    console.error("❌ Error in pre-save hook:", error);
-    next(error);
-  }
-});
+// ✅ NO PRE-SAVE HOOK - Calculate totals manually with a method
+cartSchema.methods.calculateTotals = function () {
+  this.totalItems = this.items.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
+  this.totalPrice = this.items.reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+    0
+  );
+  return this;
+};
 
 // Method to add item to cart
 cartSchema.methods.addItem = function (product, quantity = 1) {
