@@ -402,6 +402,58 @@ router.patch("/admin/:orderId/status", auth, isAdmin, async (req, res) => {
   }
 });
 
+// PATCH /admin/:orderId/delivery - Update delivery information (admin only)
+router.patch("/admin/:orderId/delivery", auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { trackingNumber, estimatedDelivery, deliveredAt } = req.body;
+
+    console.log("🔄 Updating delivery info for order:", orderId);
+
+    const updateData = {
+      updatedAt: new Date(),
+    };
+
+    if (trackingNumber !== undefined) {
+      updateData.trackingNumber = trackingNumber;
+    }
+
+    if (estimatedDelivery !== undefined) {
+      updateData.estimatedDelivery = estimatedDelivery;
+    }
+
+    if (deliveredAt !== undefined) {
+      updateData.deliveredAt = deliveredAt;
+    }
+
+    const order = await Order.findByIdAndUpdate(orderId, updateData, {
+      new: true,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    console.log("✅ Delivery info updated successfully");
+
+    res.json({
+      success: true,
+      message: "Delivery information updated",
+      data: order,
+    });
+  } catch (error) {
+    console.error("❌ Error updating delivery info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating delivery information",
+      error: error.message,
+    });
+  }
+});
+
 // ================================================
 // USER ROUTES (Dynamic routes must come AFTER specific routes)
 // ================================================
