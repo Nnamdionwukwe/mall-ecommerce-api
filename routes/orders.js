@@ -38,7 +38,7 @@ const verifyPaystackPayment = async (reference) => {
 };
 
 // ================================================
-// ROUTES
+// PAYMENT ROUTES
 // ================================================
 
 // POST /initiate-payment - Initialize Paystack payment
@@ -310,6 +310,102 @@ router.post("/verify-payment", auth, async (req, res) => {
   }
 });
 
+// ================================================
+// ADMIN ROUTES (Must come BEFORE dynamic :orderId routes)
+// ================================================
+
+// GET /admin/all - Get all orders (admin only)
+router.get("/admin/all", auth, isAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 100, status } = req.query;
+
+    let query = {};
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate("userId", "name email")
+      .populate("items.productId");
+
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error fetching orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching orders",
+      error: error.message,
+    });
+  }
+});
+
+// PATCH /admin/:orderId/status - Update order status (admin only)
+router.patch("/admin/:orderId/status", auth, isAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = [
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+      "returned",
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { status, updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Order status updated",
+      data: order,
+    });
+  } catch (error) {
+    console.error("❌ Error updating status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating order status",
+      error: error.message,
+    });
+  }
+});
+
+// ================================================
+// USER ROUTES (Dynamic routes must come AFTER specific routes)
+// ================================================
+
 // GET / - Get user's orders (alternative to /user/orders)
 router.get("/", auth, async (req, res) => {
   try {
@@ -489,98 +585,6 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error cancelling order",
-      error: error.message,
-    });
-  }
-});
-
-// ================================================
-// ADMIN ROUTES
-// ================================================
-
-// GET /admin/all - Get all orders (admin only)
-router.get("/admin/all", auth, isAdmin, async (req, res) => {
-  try {
-    const { page = 1, limit = 100, status } = req.query;
-
-    let query = {};
-    if (status && status !== "all") {
-      query.status = status;
-    }
-
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate("userId", "name email")
-      .populate("items.productId");
-
-    const total = await Order.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("❌ Error fetching orders:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching orders",
-      error: error.message,
-    });
-  }
-});
-
-// PATCH /admin/:orderId/status - Update order status (admin only)
-router.patch("/admin/:orderId/status", auth, isAdmin, async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { status } = req.body;
-
-    const validStatuses = [
-      "processing",
-      "shipped",
-      "delivered",
-      "cancelled",
-      "returned",
-    ];
-
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be: ${validStatuses.join(", ")}`,
-      });
-    }
-
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      { status, updatedAt: new Date() },
-      { new: true }
-    );
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Order status updated",
-      data: order,
-    });
-  } catch (error) {
-    console.error("❌ Error updating status:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating order status",
       error: error.message,
     });
   }
