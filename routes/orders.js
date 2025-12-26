@@ -1,80 +1,127 @@
 const express = require("express");
-const Order = require("../models/Order");
+const Order = require("../models/Order.js");
+const Cart = require("../models/Cart");
 const Product = require("../models/Product");
-const { auth, isAdmin } = require("../middleware/auth");
+const { auth, isAdmin, isVendor } = require("../middleware/auth");
 const axios = require("axios");
 
 const router = express.Router();
 
-console.log("🔍 PAYSTACK CONFIGURATION CHECK:");
-console.log("PAYSTACK_SECRET_KEY exists:", !!process.env.PAYSTACK_SECRET_KEY);
-console.log(
-  "PAYSTACK_SECRET_KEY length:",
-  process.env.PAYSTACK_SECRET_KEY?.length
-);
-console.log(
-  "Starts with 'sk_':",
-  process.env.PAYSTACK_SECRET_KEY?.startsWith("sk_")
-);
-console.log("---\n");
+const paystackKey = process.env.PAYSTACK_SECRET_KEY;
 
-// ================================================
-// MIDDLEWARE DEFINITIONS - BEFORE ROUTES
-// ================================================
-
-// ✅ Define validateOrderData BEFORE using it
-const validateOrderData = (req, res, next) => {
+// Initialize Paystack payment
+router.post("/initiate-payment", auth, async (req, res) => {
   try {
-    console.log("\n🔍 [validateOrderData] Middleware called");
+    const { email, amount, reference, metadata } = req.body;
+    const userId = req.user.id;
 
-    const {
-      reference,
-      orderId,
-      shippingInfo,
-      items,
-      subtotal,
-      shipping,
-      tax,
-      total,
-    } = req.body;
+    console.log(`💳 [initiate-payment] Starting payment for user: ${userId}`);
 
-    console.log("🔍 Validating order data...");
+    if (!email || !amount || !reference) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: email, amount, reference",
+      });
+    }
+
+    // Validate with Paystack
+    const paystackResponse = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount: Math.round(amount * 100), // Convert to kobo
+        reference,
+        metadata: {
+          user_id: userId,
+          ...metadata,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (paystackResponse.data.status) {
+      console.log(`✅ Payment initialized: ${reference}`);
+      res.json({
+        success: true,
+        message: "Payment initiated successfully",
+        data: {
+          authorizationUrl: paystackResponse.data.data.authorization_url,
+          accessCode: paystackResponse.data.data.access_code,
+          reference: paystackResponse.data.data.reference,
+        },
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Failed to initialize payment",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Payment initialization error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error initializing payment",
+      error: error.message,
+    });
+  }
+});
+
+// Verify payment and create order
+router.post("/orders/verify-payment", auth, async (req, res) => {
+  try {
+    const { reference, orderId, shippingInfo, orderNote } = req.body;
+    const userId = req.user.id;
+
+    console.log(
+      `\n💳 [verify-payment] Verifying payment for user: ${userId}, Reference: ${reference}`
+    );
 
     if (!reference) {
-      console.log("❌ Missing: reference");
       return res.status(400).json({
         success: false,
-        error: "Payment reference is required",
+        message: "Payment reference is required",
       });
     }
 
-    if (!orderId) {
-      console.log("❌ Missing: orderId");
+    // Verify with Paystack
+    console.log(`🔄 Verifying with Paystack...`);
+    const verificationResponse = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    if (!verificationResponse.data.status) {
+      console.error(`❌ Payment verification failed`);
       return res.status(400).json({
         success: false,
-        error: "Order ID is required",
+        message: "Payment verification failed",
       });
     }
 
-    if (!items || items.length === 0) {
-      console.log("❌ Missing: items");
+    const paymentData = verificationResponse.data.data;
+
+    if (paymentData.status !== "success") {
+      console.error(`❌ Payment status not success: ${paymentData.status}`);
       return res.status(400).json({
         success: false,
-        error: "Cart is empty",
+        message: "Payment was not successful",
       });
     }
 
-    if (!shippingInfo) {
-      console.log("❌ Missing: shippingInfo");
-      return res.status(400).json({
-        success: false,
-        error: "Shipping information is required",
-      });
-    }
+    console.log(`✅ Payment verified successfully`);
 
+    // Validate shipping info
     const { fullName, email, phone, address, city, state, zipCode } =
       shippingInfo;
-
     if (
       !fullName ||
       !email ||
@@ -84,177 +131,89 @@ const validateOrderData = (req, res, next) => {
       !state ||
       !zipCode
     ) {
-      console.log("❌ Missing: incomplete shipping information");
       return res.status(400).json({
         success: false,
-        error: "Incomplete shipping information",
+        message: "Incomplete shipping information",
       });
     }
 
-    if (subtotal === undefined || shipping === undefined || tax === undefined) {
-      console.log("❌ Missing: pricing information");
+    // Get user's cart
+    console.log(`🛒 Fetching cart for user: ${userId}`);
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
+
+    if (!cart || cart.items.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Pricing information is incomplete",
+        message: "Cart is empty",
       });
     }
 
-    console.log("✅ All order data validated successfully");
-    console.log("🔍 [validateOrderData] Calling next()...\n");
+    console.log(`📦 Processing ${cart.items.length} cart items...`);
 
-    // ✅ CRITICAL: Call next()
-    return next();
-  } catch (error) {
-    console.error("❌ [validateOrderData] Error:", error.message);
-    return res.status(500).json({
-      success: false,
-      error: "Validation error: " + error.message,
-    });
-  }
-};
+    // Validate items and check stock
+    const orderItems = [];
+    let subtotal = 0;
 
-// ================================================
-// ROUTES
-// ================================================
+    for (const cartItem of cart.items) {
+      console.log(`📝 Processing item: ${cartItem.name}`);
 
-// POST /verify-payment - Verify payment and create order
-router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
-  try {
-    console.log("\n🔍 [verify-payment] Route handler started");
+      // Get fresh product data
+      const product = await Product.findById(cartItem.productId._id);
 
-    const {
-      reference,
-      orderId,
-      shippingInfo,
-      items,
-      subtotal,
-      shipping,
-      tax,
-      total,
-      orderNote,
-    } = req.body;
-
-    const userId = req.user.id;
-
-    console.log("\n=== PAYMENT VERIFICATION START ===");
-    console.log("Reference:", reference);
-    console.log("Order ID:", orderId);
-    console.log("User ID:", userId);
-    console.log("Items count:", items.length);
-
-    // Verify with Paystack
-    const paystackKey = process.env.PAYSTACK_SECRET_KEY;
-
-    if (!paystackKey) {
-      console.error("❌ FATAL: PAYSTACK_SECRET_KEY is not set!");
-      return res.status(500).json({
-        success: false,
-        message: "Server configuration error: Paystack key not found",
-        error: "PAYSTACK_SECRET_KEY is not set in environment variables",
-      });
-    }
-
-    console.log("✅ Paystack key found");
-    console.log("🔄 Verifying payment with Paystack...");
-
-    const verificationResponse = await axios.get(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        headers: {
-          Authorization: `Bearer ${paystackKey}`,
-        },
-      }
-    );
-
-    console.log(
-      "✅ Paystack Response Status:",
-      verificationResponse.data.status
-    );
-
-    if (!verificationResponse.data.status) {
-      console.log("❌ Paystack verification failed");
-      return res.status(400).json({
-        success: false,
-        message: "Payment verification failed with Paystack",
-      });
-    }
-
-    const paymentData = verificationResponse.data.data;
-
-    if (paymentData.status !== "success") {
-      console.log("❌ Payment status is not success");
-      return res.status(400).json({
-        success: false,
-        message: "Payment was not successful",
-        paymentStatus: paymentData.status,
-      });
-    }
-
-    console.log("✅ Payment verified successfully");
-
-    // ✅ CRITICAL: Validate items and update stock with proper await
-    console.log("\n🔄 Validating cart items and updating stock...");
-
-    for (const item of items) {
-      console.log(`📦 Processing item: ${item.name}`);
-
-      const product = await Product.findById(item._id || item.productId);
       if (!product) {
-        console.error(`❌ Product not found: ${item.name}`);
+        console.error(`❌ Product not found: ${cartItem.productId._id}`);
         return res.status(404).json({
           success: false,
-          message: `Product not found: ${item.name}`,
+          message: `Product "${cartItem.name}" is no longer available`,
         });
       }
 
-      console.log(`✅ Product found: ${product.name}`);
-
-      if (!product.isInStock(item.quantity)) {
-        console.error(`❌ Insufficient stock for ${product.name}`);
+      // Check stock
+      if (product.stock < cartItem.quantity) {
+        console.error(
+          `❌ Insufficient stock for ${product.name}: Requested ${cartItem.quantity}, Available ${product.stock}`
+        );
         return res.status(400).json({
           success: false,
-          message: `Insufficient stock for ${product.name}`,
+          message: `Insufficient stock for "${product.name}". Only ${product.stock} available.`,
         });
       }
 
-      console.log(`🔄 Decreasing stock for ${product.name}...`);
-      // ✅ CRITICAL: Use await since decreaseStock is now async
-      await product.decreaseStock(item.quantity);
-      console.log(`✅ Stock updated for ${product.name}`);
+      console.log(`✅ ${product.name} - Stock OK`);
+
+      orderItems.push({
+        productId: product._id,
+        name: product.name,
+        price: product.price,
+        quantity: cartItem.quantity,
+        image: product.images?.[0] || null,
+      });
+
+      subtotal += product.price * cartItem.quantity;
     }
 
-    console.log("✅ All items validated and stock updated");
+    // Calculate totals
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
+
+    console.log(
+      `💰 Order totals - Subtotal: ${subtotal}, Shipping: ${shipping}, Tax: ${tax}, Total: ${total}`
+    );
 
     // Create order document
-    console.log("\n🔄 Creating order in database...");
-
-    console.log("📋 Order data being created:");
-    console.log("  - orderId:", orderId);
-    console.log("  - userId:", userId);
-    console.log("  - items count:", items.length);
-    console.log("  - total:", total);
-
-    const orderData = {
+    const order = new Order({
       orderId,
       userId,
-      items: items.map((item) => {
-        console.log(`  - Mapping item: ${item.name}`);
-        return {
-          productId: item._id || item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.images?.[0] || item.image || null,
-        };
-      }),
+      items: orderItems,
       shippingInfo: {
-        fullName: shippingInfo.fullName,
-        email: shippingInfo.email,
-        phone: shippingInfo.phone,
-        address: shippingInfo.address,
-        city: shippingInfo.city,
-        state: shippingInfo.state,
-        zipCode: shippingInfo.zipCode,
+        fullName,
+        email,
+        phone,
+        address,
+        city,
+        state,
+        zipCode,
       },
       orderNote: orderNote || "",
       pricing: {
@@ -268,235 +227,83 @@ router.post("/verify-payment", auth, validateOrderData, async (req, res) => {
         reference: paymentData.reference,
         transactionId: paymentData.id,
         status: "paid",
-        paidAt: new Date(paymentData.paid_at),
+        paidAt: new Date(),
       },
       status: "processing",
-    };
+    });
 
-    console.log("📦 Creating Order object...");
-    const order = new Order(orderData);
+    // Save order to database
+    await order.save();
+    console.log(`✅ Order created: ${order._id}`);
 
-    console.log("💾 Validating Order object...");
-    await order.validate();
-    console.log("✅ Order object validated");
+    // Clear user's cart
+    cart.items = [];
+    cart.totalPrice = 0;
+    cart.totalItems = 0;
+    await cart.save();
+    console.log(`✅ Cart cleared for user: ${userId}`);
 
-    console.log("💾 Saving Order to database...");
-    const savedOrder = await order.save();
-
-    console.log("✅ Order saved successfully!");
-    console.log("Order ID in DB:", savedOrder._id);
-    console.log("=== PAYMENT VERIFICATION COMPLETE ===\n");
-
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Payment verified and order created successfully",
       data: {
-        orderId: savedOrder.orderId,
-        _id: savedOrder._id,
-        status: savedOrder.status,
-        total: savedOrder.pricing.total,
-        paymentStatus: savedOrder.paymentInfo.status,
-        email: savedOrder.shippingInfo.email,
-        createdAt: savedOrder.createdAt,
+        orderId: order.orderId,
+        _id: order._id,
+        status: order.status,
+        total: order.pricing.total,
+        paymentStatus: order.paymentInfo.status,
       },
     });
   } catch (error) {
-    console.error("\n========================================");
-    console.error("❌ ORDER CREATION ERROR");
-    console.error("========================================");
-    console.error("Error Name:", error.name);
-    console.error("Error Message:", error.message);
-    console.error("Error Code:", error.code);
-    console.error("Full Error Object:", error);
-    console.error("Stack Trace:", error.stack);
-
-    if (error.response) {
-      console.error("HTTP Error Status:", error.response.status);
-      console.error("HTTP Error Data:", error.response.data);
-    }
-
-    if (error.name === "ValidationError") {
-      console.error("🔴 MONGODB VALIDATION ERROR");
-      console.error("Validation Errors:", error.errors);
-
-      const validationDetails = Object.keys(error.errors).map((key) => {
-        const err = error.errors[key];
-        return {
-          field: key,
-          message: err.message,
-          value: err.value,
-          kind: err.kind,
-        };
-      });
-
-      console.error("Formatted Validation Errors:", validationDetails);
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order data",
-        error: validationDetails,
-        errorType: "ValidationError",
-      });
-    }
-
-    if (error.name === "CastError") {
-      console.error("🔴 MONGODB CAST ERROR");
-      console.error("Cast Error Details:", error);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid data format",
-        error: error.message,
-        errorType: "CastError",
-      });
-    }
-
-    console.error("========================================\n");
-
-    return res.status(500).json({
+    console.error("❌ Order creation error:", error);
+    res.status(500).json({
       success: false,
       message: "Error creating order",
       error: error.message,
-      errorType: error.name,
-      details: error.errors || error,
     });
   }
 });
 
-// GET /admin/all - Get ALL orders (admin only)
-router.get("/admin/all", auth, isAdmin, async (req, res) => {
+// Get order by ID
+router.get("/:orderId", auth, async (req, res) => {
   try {
-    console.log("🔍 [GET /admin/all] Fetching all orders for admin");
+    const { orderId } = req.params;
+    const userId = req.user.id;
 
-    const { page = 1, limit = 100, status } = req.query;
+    const order = await Order.findOne({
+      _id: orderId,
+      userId,
+    }).populate("items.productId notes.createdBy");
 
-    let query = {};
-    if (status && status !== "all") {
-      query.status = status;
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
 
-    console.log("🔍 Query:", query);
-    console.log("🔍 Page:", page, "Limit:", limit);
+    // Get days until delivery
+    const daysLeft = order.daysUntilDelivery?.() || null;
 
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate("userId", "name email")
-      .populate("items.productId", "name price");
-
-    const total = await Order.countDocuments(query);
-
-    console.log(`✅ Found ${orders.length} orders out of ${total} total`);
-
-    return res.json({
+    res.json({
       success: true,
-      data: orders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
+      data: {
+        ...order.toObject(),
+        daysUntilDelivery: daysLeft,
       },
     });
   } catch (error) {
-    console.error("❌ Error fetching all orders:", error);
-    return res.status(500).json({
+    console.error("❌ Error fetching order:", error);
+    res.status(500).json({
       success: false,
-      message: "Error fetching orders",
+      message: "Error fetching order",
       error: error.message,
     });
   }
 });
 
-// // GET / - Get user's orders
-// router.get("/", auth, async (req, res) => {
-//   try {
-//     const userId = req.user.id;
-//     const { page = 1, limit = 10, status } = req.query;
-
-//     let query = { userId };
-//     if (status) {
-//       query.status = status;
-//     }
-
-//     const orders = await Order.find(query)
-//       .sort({ createdAt: -1 })
-//       .limit(limit * 1)
-//       .skip((page - 1) * limit)
-//       .populate("items.productId")
-//       .populate("notes.createdBy", "name email");
-
-//     const total = await Order.countDocuments(query);
-
-//     return res.json({
-//       success: true,
-//       data: orders,
-//       pagination: {
-//         page: parseInt(page),
-//         limit: parseInt(limit),
-//         total,
-//         pages: Math.ceil(total / limit),
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error fetching orders:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error fetching orders",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// GET /admin/all - Get ALL orders (admin only)
-// router.get("/admin/all", auth, isAdmin, async (req, res) => {
-//   try {
-//     console.log("🔍 [GET /admin/all] Fetching all orders for admin");
-
-//     const { page = 1, limit = 100, status } = req.query;
-
-//     let query = {};
-//     if (status && status !== "all") {
-//       query.status = status;
-//     }
-
-//     console.log("🔍 Query:", query);
-//     console.log("🔍 Page:", page, "Limit:", limit);
-
-//     const orders = await Order.find(query)
-//       .sort({ createdAt: -1 })
-//       .limit(limit * 1)
-//       .skip((page - 1) * limit)
-//       .populate("userId", "name email")
-//       .populate("items.productId", "name price");
-
-//     const total = await Order.countDocuments(query);
-
-//     console.log(`✅ Found ${orders.length} orders out of ${total} total`);
-
-//     return res.json({
-//       success: true,
-//       data: orders,
-//       pagination: {
-//         page: parseInt(page),
-//         limit: parseInt(limit),
-//         total,
-//         pages: Math.ceil(total / limit),
-//       },
-//     });
-//   } catch (error) {
-//     console.error("❌ Error fetching all orders:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error fetching orders",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// Keep your existing GET / route here (for user's own orders)
-// GET / - Get user's orders
-router.get("/", auth, async (req, res) => {
+// Get user's orders
+router.get("/user/orders", auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { page = 1, limit = 10, status } = req.query;
@@ -510,12 +317,11 @@ router.get("/", auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate("items.productId")
-      .populate("notes.createdBy", "name email");
+      .populate("items.productId");
 
     const total = await Order.countDocuments(query);
 
-    return res.json({
+    res.json({
       success: true,
       data: orders,
       pagination: {
@@ -526,8 +332,8 @@ router.get("/", auth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching orders:", error);
-    return res.status(500).json({
+    console.error("❌ Error fetching orders:", error);
+    res.status(500).json({
       success: false,
       message: "Error fetching orders",
       error: error.message,
@@ -535,48 +341,38 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// GET /:orderId - Get single order by ID
-router.get("/:orderId", auth, async (req, res) => {
+// Get user's order statistics
+router.get("/user/stats", auth, async (req, res) => {
   try {
-    const { orderId } = req.params;
     const userId = req.user.id;
 
-    const order = await Order.findOne({
-      _id: orderId,
-      userId,
-    })
-      .populate("items.productId")
-      .populate("notes.createdBy", "name email");
+    const stats = await Order.getOrderStats(userId);
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    const daysLeft = order.daysUntilDelivery?.() || null;
-
-    return res.json({
+    res.json({
       success: true,
-      data: {
-        ...order.toObject(),
-        daysUntilDelivery: daysLeft,
-      },
+      message: "Order statistics retrieved",
+      data: stats,
     });
   } catch (error) {
-    console.error("Error fetching order:", error);
-    return res.status(500).json({
+    console.error("❌ Error fetching stats:", error);
+    res.status(500).json({
       success: false,
-      message: "Error fetching order",
+      message: "Error fetching statistics",
       error: error.message,
     });
   }
 });
 
-// POST /:orderId/notes - Add note to order (admin only)
-router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
+// Add note to order (admin only)
+router.post("/:orderId/notes", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can add notes to orders",
+      });
+    }
+
     const { orderId } = req.params;
     const { message } = req.body;
     const adminId = req.user.id;
@@ -596,18 +392,17 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
       });
     }
 
-    if (order.addNote) {
-      await order.addNote(message, adminId);
-    }
+    // Use the addNote method from schema
+    await order.addNote(message, adminId);
 
-    return res.json({
+    res.json({
       success: true,
       message: "Note added successfully",
       data: order,
     });
   } catch (error) {
-    console.error("Error adding note:", error);
-    return res.status(500).json({
+    console.error("❌ Error adding note:", error);
+    res.status(500).json({
       success: false,
       message: "Error adding note",
       error: error.message,
@@ -615,9 +410,16 @@ router.post("/:orderId/notes", auth, isAdmin, async (req, res) => {
   }
 });
 
-// PATCH /:orderId/status - Update order status (admin only)
-router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
+// Update order status (admin only)
+router.patch("/:orderId/status", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can update order status",
+      });
+    }
+
     const { orderId } = req.params;
     const { status } = req.body;
 
@@ -648,14 +450,14 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
       });
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Order status updated successfully",
       data: order,
     });
   } catch (error) {
-    console.error("Error updating order status:", error);
-    return res.status(500).json({
+    console.error("❌ Error updating order status:", error);
+    res.status(500).json({
       success: false,
       message: "Error updating order status",
       error: error.message,
@@ -663,9 +465,16 @@ router.patch("/:orderId/status", auth, isAdmin, async (req, res) => {
   }
 });
 
-// PATCH /:orderId/delivery - Update delivery information (admin only)
-router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
+// Update delivery information (admin only)
+router.patch("/:orderId/delivery", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can update delivery information",
+      });
+    }
+
     const { orderId } = req.params;
     const { trackingNumber, estimatedDelivery, deliveredAt } = req.body;
 
@@ -673,10 +482,8 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
       orderId,
       {
         trackingNumber,
-        estimatedDelivery: estimatedDelivery
-          ? new Date(estimatedDelivery)
-          : null,
-        deliveredAt: deliveredAt ? new Date(deliveredAt) : null,
+        estimatedDelivery,
+        deliveredAt,
         status: deliveredAt ? "delivered" : "shipped",
         updatedAt: new Date(),
       },
@@ -690,14 +497,14 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
       });
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Delivery information updated successfully",
       data: order,
     });
   } catch (error) {
-    console.error("Error updating delivery info:", error);
-    return res.status(500).json({
+    console.error("❌ Error updating delivery info:", error);
+    res.status(500).json({
       success: false,
       message: "Error updating delivery information",
       error: error.message,
@@ -705,7 +512,7 @@ router.patch("/:orderId/delivery", auth, isAdmin, async (req, res) => {
   }
 });
 
-// POST /:orderId/cancel - Cancel order (user)
+// Cancel order (user)
 router.post("/:orderId/cancel", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -720,39 +527,29 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
       });
     }
 
+    // Use the canBeCancelled method
     if (order.canBeCancelled && !order.canBeCancelled()) {
       return res.status(400).json({
         success: false,
         message: "This order cannot be cancelled",
         currentStatus: order.status,
-        paymentStatus: order.paymentInfo?.status,
+        paymentStatus: order.paymentInfo.status,
       });
     }
 
+    // Cancel order
     order.status = "cancelled";
     order.cancellationReason = reason || "User requested cancellation";
     await order.save();
 
-    // ✅ CRITICAL: Use await for stock restoration
-    console.log("🔄 Restoring product stock on cancellation...");
-    for (const item of order.items) {
-      const product = await Product.findById(item.productId);
-      if (product) {
-        console.log(`📦 Restoring ${product.name} stock by ${item.quantity}`);
-        // ✅ Use await since increaseStock is now async
-        await product.increaseStock(item.quantity);
-        console.log(`✅ Stock restored for ${product.name}`);
-      }
-    }
-
-    return res.json({
+    res.json({
       success: true,
       message: "Order cancelled successfully",
       data: order,
     });
   } catch (error) {
-    console.error("Error cancelling order:", error);
-    return res.status(500).json({
+    console.error("❌ Error cancelling order:", error);
+    res.status(500).json({
       success: false,
       message: "Error cancelling order",
       error: error.message,
@@ -760,21 +557,28 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
   }
 });
 
-// GET /filter/status/:status - Get orders by status (admin only)
-router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
+// Find orders by status (admin)
+router.get("/filter/status/:status", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can filter orders",
+      });
+    }
+
     const { status } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
     const orders = await Order.find({ status })
-      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 })
       .limit(limit * 1)
-      .populate("items.productId")
-      .populate("userId", "name email");
+      .skip((page - 1) * limit)
+      .populate("items.productId userId");
 
     const total = await Order.countDocuments({ status });
 
-    return res.json({
+    res.json({
       success: true,
       data: orders,
       pagination: {
@@ -785,8 +589,8 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error filtering orders:", error);
-    return res.status(500).json({
+    console.error("❌ Error filtering orders:", error);
+    res.status(500).json({
       success: false,
       message: "Error filtering orders",
       error: error.message,
@@ -794,56 +598,31 @@ router.get("/filter/status/:status", auth, isAdmin, async (req, res) => {
   }
 });
 
-// GET /stats/admin - Get order statistics (admin only)
-router.get("/stats/admin", auth, isAdmin, async (req, res) => {
+// Get all order statistics (admin)
+router.get("/admin/stats", auth, async (req, res) => {
   try {
-    const stats = (await Order.getOrderStats?.()) || {
-      totalOrders: 0,
-      totalRevenue: 0,
-    };
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can view statistics",
+      });
+    }
 
-    return res.json({
+    const stats = await Order.getOrderStats?.();
+
+    res.json({
       success: true,
       message: "All order statistics",
       data: stats,
     });
   } catch (error) {
-    console.error("Error fetching stats:", error);
-    return res.status(500).json({
+    console.error("❌ Error fetching stats:", error);
+    res.status(500).json({
       success: false,
       message: "Error fetching statistics",
       error: error.message,
     });
   }
 });
-
-// GET /stats/user - Get user order statistics
-router.get("/stats/user", auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const stats = (await Order.getOrderStats?.(userId)) || {
-      totalOrders: 0,
-      totalSpent: 0,
-    };
-
-    return res.json({
-      success: true,
-      message: "User order statistics",
-      data: stats,
-    });
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching user statistics",
-      error: error.message,
-    });
-  }
-});
-
-// ================================================
-// EXPORT
-// ================================================
 
 module.exports = router;
