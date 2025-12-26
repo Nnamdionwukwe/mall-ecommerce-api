@@ -310,6 +310,45 @@ router.post("/verify-payment", auth, async (req, res) => {
   }
 });
 
+// GET / - Get user's orders (alternative to /user/orders)
+router.get("/", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10, status } = req.query;
+
+    let query = { userId };
+    if (status) {
+      query.status = status;
+    }
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate("items.productId");
+
+    const total = await Order.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error fetching orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching orders",
+      error: error.message,
+    });
+  }
+});
+
 // GET /user/orders - Get user's orders
 router.get("/user/orders", auth, async (req, res) => {
   try {
@@ -349,30 +388,49 @@ router.get("/user/orders", auth, async (req, res) => {
   }
 });
 
-// GET /:orderId - Get single order
+// GET /:orderId - Get single order (search by orderId or _id)
 router.get("/:orderId", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const userId = req.user.id;
 
-    const order = await Order.findOne({
-      _id: orderId,
+    console.log(`🔍 Fetching order: ${orderId}`);
+
+    // Try to find by orderId first (custom ID like "ORD-xxx")
+    let order = await Order.findOne({
+      orderId,
       userId,
     }).populate("items.productId");
 
+    // If not found, try by MongoDB _id
     if (!order) {
+      console.log("  Not found by orderId, trying _id...");
+
+      // Check if it's a valid MongoDB ObjectId
+      if (orderId.match(/^[0-9a-fA-F]{24}$/)) {
+        order = await Order.findOne({
+          _id: orderId,
+          userId,
+        }).populate("items.productId");
+      }
+    }
+
+    if (!order) {
+      console.error(`❌ Order not found: ${orderId}`);
       return res.status(404).json({
         success: false,
         message: "Order not found",
       });
     }
 
+    console.log(`✅ Order found: ${order._id}`);
+
     res.json({
       success: true,
       data: order,
     });
   } catch (error) {
-    console.error("❌ Error fetching order:", error);
+    console.error("❌ Error fetching order:", error.message);
     res.status(500).json({
       success: false,
       message: "Error fetching order",
