@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User"); // ✅ ADD THIS - Import User model
 
-const auth = (req, res, next) => {
+const auth = async (req, res, next) => {
   try {
     let token;
 
@@ -27,18 +28,32 @@ const auth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("✅ Token verified. Decoded:", decoded);
 
-    // ✅ FIXED: Use 'id' property to match order routes
-    // The decoded token should have one of these: id, _id, or userId
+    // ✅ FIXED: Fetch user from database to get latest role
+    const userId = decoded.id || decoded._id || decoded.userId;
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+      console.log("❌ User not found in database");
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Token is invalid.",
+      });
+    }
+
+    // Attach user with latest data from database
     req.user = {
-      id: decoded.id || decoded._id || decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      userId: decoded.userId || decoded.id || decoded._id,
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role, // ✅ Fresh role from database
+      userId: user._id.toString(),
     };
 
-    console.log("👤 User attached to request:", req.user);
-    console.log("👤 User ID:", req.user.id);
-    console.log("👤 User Role:", req.user.role);
+    console.log("👤 User attached to request:", {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+    });
 
     next();
   } catch (error) {
@@ -84,6 +99,7 @@ const isAdmin = (req, res, next) => {
     return res.status(403).json({
       success: false,
       message: "Access denied. Admin or Vendor role required",
+      userRole: req.user.role, // ✅ Include role in response for debugging
     });
   }
 
@@ -93,19 +109,27 @@ const isAdmin = (req, res, next) => {
 
 const isVendor = (req, res, next) => {
   if (!req.user) {
+    console.log("❌ [isVendor] No user attached to request");
     return res.status(401).json({
       success: false,
       message: "Authentication required",
     });
   }
 
+  console.log("🔍 [isVendor] Checking role. User role:", req.user.role);
+
   if (req.user.role !== "vendor" && req.user.role !== "admin") {
+    console.log(
+      `❌ [isVendor] Access denied. User role is '${req.user.role}', must be 'vendor' or 'admin'`
+    );
     return res.status(403).json({
       success: false,
-      message: "Access denied. Vendor role required",
+      message: "Access denied. Vendor or Admin role required",
+      userRole: req.user.role, // ✅ Include role in response for debugging
     });
   }
 
+  console.log("✅ [isVendor] Vendor/Admin access granted");
   next();
 };
 
