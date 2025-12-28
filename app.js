@@ -1,8 +1,116 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const socketIo = require("socket.io");
+const Chat = require("./models/Chat");
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const app = express();
+const server = http.createServer(app);
+
+// Socket.IO Setup
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Socket.IO Authentication Middleware
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+      return next(new Error("Authentication error"));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    socket.userRole = decoded.role || "user";
+
+    console.log(
+      `✅ Socket authenticated: ${socket.userId} (${socket.userRole})`
+    );
+    next();
+  } catch (error) {
+    console.error("Socket auth error:", error);
+    next(new Error("Authentication error"));
+  }
+});
+
+// Socket.IO Connection Handler
+io.on("connection", (socket) => {
+  console.log(
+    `🔌 New socket connection: ${socket.id} (User: ${socket.userId})`
+  );
+
+  // Join user-specific room
+  socket.join(`user:${socket.userId}`);
+
+  // Admin/Vendor joins admin room
+  if (socket.userRole === "admin" || socket.userRole === "vendor") {
+    socket.join("admin-room");
+    console.log(`👨‍💼 ${socket.userRole} joined admin room`);
+  }
+
+  // Handle sending messages
+  socket.on("send-message", async (data) => {
+    try {
+      console.log("📨 Message received:", data);
+      const { chatId, message } = data;
+
+      // Get chat
+      const chat = await Chat.findById(chatId);
+      if (!chat) {
+        return socket.emit("error", { message: "Chat not found" });
+      }
+
+      // Get last message (the one we just added via API)
+      const lastMessage = chat.messages[chat.messages.length - 1];
+
+      // Emit to user
+      io.to(`user:${chat.userId}`).emit("new-message", {
+        chatId,
+        message: lastMessage,
+      });
+
+      // Emit to admins/vendors
+      io.to("admin-room").emit("new-message", {
+        chatId,
+        message: lastMessage,
+      });
+
+      console.log("✅ Message broadcasted");
+    } catch (error) {
+      console.error("Error handling message:", error);
+      socket.emit("error", { message: "Failed to send message" });
+    }
+  });
+
+  // Handle typing indicator
+  socket.on("typing", (data) => {
+    const { chatId, userId } = data;
+
+    // Broadcast typing to others in the chat
+    socket.broadcast.emit("typing", { chatId, userId });
+  });
+
+  socket.on("stop-typing", (data) => {
+    const { chatId } = data;
+    socket.broadcast.emit("stop-typing", { chatId });
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log(`❌ Socket disconnected: ${socket.id}`);
+  });
+});
+
+// Export io for use in routes
+global.io = io;
 
 // ================================================
 // CORS CONFIGURATION
@@ -213,4 +321,5 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
   console.log(`📋 Routes: http://localhost:${PORT}/api/routes`);
   console.log("========================================\n");
+  console.log(`Socket.IO ready`);
 });
