@@ -281,43 +281,94 @@ router.patch("/:id/stock", async (req, res) => {
 });
 
 // DELETE /api/products/:id - Delete product (both admin and vendor have full control)
+// router.delete("/:id", auth, isVendor, async (req, res) => {
+//   try {
+//     const { permanent } = req.query;
+
+//     // Get product to check if it exists
+//     const product = await Product.findById(req.params.id);
+//     if (!product) {
+//       return res.status(404).json({ error: "Product not found" });
+//     }
+
+//     // ✅ UPDATED: Both admin and vendor can delete any product
+//     // No ownership check needed - isVendor middleware ensures user is vendor or admin
+
+//     let deletedProduct;
+//     if (permanent === "true") {
+//       // Hard delete - both admins and vendors can do this
+//       deletedProduct = await Product.findByIdAndDelete(req.params.id);
+//     } else {
+//       // Soft delete - deactivate (vendors and admins)
+//       await product.deactivate();
+//       deletedProduct = product;
+//     }
+
+//     res.json({
+//       success: true,
+//       message:
+//         permanent === "true"
+//           ? "Product permanently deleted"
+//           : "Product deactivated",
+//       data: deletedProduct,
+//     });
+//   } catch (error) {
+//     if (error.kind === "ObjectId") {
+//       return res.status(400).json({ error: "Invalid product ID" });
+//     }
+//     console.error("Error deleting product:", error);
+//     res.status(500).json({ error: "Server error", message: error.message });
+//   }
+// });
+
+// DELETE /api/products/:id - Delete product (HARD DELETE BY DEFAULT)
 router.delete("/:id", auth, isVendor, async (req, res) => {
   try {
-    const { permanent } = req.query;
+    console.log("🗑️ DELETE - Product ID:", req.params.id);
 
-    // Get product to check if it exists
+    const { soft } = req.query; // ?soft=true for soft delete
+
     const product = await Product.findById(req.params.id);
     if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({
+        success: false,
+        error: "Product not found",
+      });
     }
 
-    // ✅ UPDATED: Both admin and vendor can delete any product
-    // No ownership check needed - isVendor middleware ensures user is vendor or admin
-
     let deletedProduct;
-    if (permanent === "true") {
-      // Hard delete - both admins and vendors can do this
-      deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    } else {
-      // Soft delete - deactivate (vendors and admins)
-      await product.deactivate();
+
+    if (soft === "true") {
+      // Soft delete - deactivate
+      product.isActive = false;
+      await product.save();
       deletedProduct = product;
+      console.log("✅ Product deactivated");
+    } else {
+      // HARD DELETE - Actually remove from MongoDB (DEFAULT)
+      deletedProduct = await Product.findByIdAndDelete(req.params.id);
+      console.log("✅ Product DELETED from database");
     }
 
     res.json({
       success: true,
       message:
-        permanent === "true"
-          ? "Product permanently deleted"
-          : "Product deactivated",
+        soft === "true" ? "Product deactivated" : "Product permanently deleted",
       data: deletedProduct,
     });
   } catch (error) {
+    console.error("❌ Delete error:", error);
     if (error.kind === "ObjectId") {
-      return res.status(400).json({ error: "Invalid product ID" });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid product ID",
+      });
     }
-    console.error("Error deleting product:", error);
-    res.status(500).json({ error: "Server error", message: error.message });
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+      message: error.message,
+    });
   }
 });
 
