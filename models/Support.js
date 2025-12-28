@@ -33,6 +33,34 @@ const supportSchema = new mongoose.Schema(
       required: [true, "Message is required"],
       trim: true,
     },
+    // 🆕 Media attachments (images/videos)
+    attachments: [
+      {
+        type: {
+          type: String,
+          enum: ["image", "video"],
+          required: true,
+        },
+        url: {
+          type: String,
+          required: true,
+        },
+        filename: {
+          type: String,
+          required: true,
+        },
+        size: {
+          type: Number, // Size in bytes
+        },
+        mimeType: {
+          type: String,
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     status: {
       type: String,
       enum: ["open", "in-progress", "resolved", "closed"],
@@ -54,6 +82,16 @@ const supportSchema = new mongoose.Schema(
           ref: "User",
         },
         message: String,
+        attachments: [
+          {
+            type: {
+              type: String,
+              enum: ["image", "video"],
+            },
+            url: String,
+            filename: String,
+          },
+        ],
         createdAt: {
           type: Date,
           default: Date.now,
@@ -66,7 +104,14 @@ const supportSchema = new mongoose.Schema(
   }
 );
 
+// Indexes
 supportSchema.index({ email: 1, createdAt: -1 });
 supportSchema.index({ status: 1 });
+supportSchema.index({ userId: 1 });
+
+// Virtual for attachment count
+supportSchema.virtual("attachmentCount").get(function () {
+  return this.attachments ? this.attachments.length : 0;
+});
 
 module.exports = mongoose.model("Support", supportSchema);
