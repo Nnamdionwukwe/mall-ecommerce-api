@@ -183,28 +183,20 @@ router.post("/", auth, isVendor, validateProduct, async (req, res) => {
   }
 });
 
-// PUT /api/products/:id - Update product (vendor can only update their own, admin can update any)
+// PUT /api/products/:id - Update product (vendor and admin have full control)
 router.put("/:id", auth, isVendor, validateProduct, async (req, res) => {
   try {
     const { name, description, price, stock, category, images, isActive } =
       req.body;
 
-    // Get product to check ownership
+    // Get product to check if it exists
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // ✅ FIXED: Admin can edit any product, vendor can only edit their own
-    const isAdmin = req.user.role === "admin";
-    const isOwner = product.vendorId === req.user.id;
-
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({
-        error: "Not authorized to update this product",
-        message: "You can only update your own products",
-      });
-    }
+    // ✅ UPDATED: Both admin and vendor can edit any product
+    // No ownership check needed - isVendor middleware ensures user is vendor or admin
 
     // Update product
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -288,39 +280,23 @@ router.patch("/:id/stock", async (req, res) => {
   }
 });
 
-// DELETE /api/products/:id - Delete product (admin can delete any, vendor can only delete their own)
+// DELETE /api/products/:id - Delete product (both admin and vendor have full control)
 router.delete("/:id", auth, isVendor, async (req, res) => {
   try {
     const { permanent } = req.query;
 
-    // Get product to check ownership
+    // Get product to check if it exists
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // ✅ FIXED: Admin can delete any product, vendor can only delete their own
-    const isAdmin = req.user.role === "admin";
-    const isOwner = product.vendorId === req.user.id;
-
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({
-        error: "Not authorized to delete this product",
-        message: "You can only delete your own products",
-      });
-    }
-
-    // ✅ FIXED: Only admins can permanently delete
-    if (permanent === "true" && !isAdmin) {
-      return res.status(403).json({
-        error: "Not authorized",
-        message: "Only admins can permanently delete products",
-      });
-    }
+    // ✅ UPDATED: Both admin and vendor can delete any product
+    // No ownership check needed - isVendor middleware ensures user is vendor or admin
 
     let deletedProduct;
     if (permanent === "true") {
-      // Hard delete - only admins
+      // Hard delete - both admins and vendors can do this
       deletedProduct = await Product.findByIdAndDelete(req.params.id);
     } else {
       // Soft delete - deactivate (vendors and admins)
