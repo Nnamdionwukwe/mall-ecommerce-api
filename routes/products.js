@@ -133,8 +133,62 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST /api/products - Create new product (vendor/admin only)
+
+// router.post("/", auth, isVendor, validateProduct, async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description,
+//       price,
+//       stock,
+//       category,
+//       vendorId,
+//       vendorName,
+//       images,
+//     } = req.body;
+
+//     // Verify vendor is creating their own product (admins can create for any vendor)
+//     if (vendorId !== req.user.id && req.user.role !== "admin") {
+//       return res.status(403).json({
+//         error: "Not authorized to create product for this vendor",
+//       });
+//     }
+
+//     const product = new Product({
+//       name,
+//       description,
+//       price,
+//       stock,
+//       category,
+//       vendorId,
+//       vendorName: vendorName || req.user.name,
+//       images: images || [],
+//     });
+
+//     await product.save();
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       data: product,
+//     });
+//   } catch (error) {
+//     if (error.name === "ValidationError") {
+//       return res.status(400).json({
+//         error: "Validation error",
+//         details: error.errors,
+//       });
+//     }
+//     console.error("Error creating product:", error);
+//     res.status(500).json({ error: "Server error", message: error.message });
+//   }
+// });
+
+// POST /api/products - Create new product (both vendor and admin)
 router.post("/", auth, isVendor, validateProduct, async (req, res) => {
   try {
+    console.log("➕ CREATE PRODUCT - User:", req.user.role);
+
     const {
       name,
       description,
@@ -146,10 +200,12 @@ router.post("/", auth, isVendor, validateProduct, async (req, res) => {
       images,
     } = req.body;
 
-    // Verify vendor is creating their own product (admins can create for any vendor)
-    if (vendorId !== req.user.id && req.user.role !== "admin") {
+    // ✅ Both admin and vendor can create products
+    // Vendors can only create for themselves, admins can create for anyone
+    if (req.user.role === "vendor" && vendorId !== req.user.id) {
       return res.status(403).json({
-        error: "Not authorized to create product for this vendor",
+        success: false,
+        error: "Vendors can only create products for themselves",
       });
     }
 
@@ -166,20 +222,27 @@ router.post("/", auth, isVendor, validateProduct, async (req, res) => {
 
     await product.save();
 
+    console.log("✅ Product created:", product._id);
+
     res.status(201).json({
       success: true,
       message: "Product created successfully",
       data: product,
     });
   } catch (error) {
+    console.error("❌ Error creating product:", error);
     if (error.name === "ValidationError") {
       return res.status(400).json({
+        success: false,
         error: "Validation error",
         details: error.errors,
       });
     }
-    console.error("Error creating product:", error);
-    res.status(500).json({ error: "Server error", message: error.message });
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+      message: error.message,
+    });
   }
 });
 
