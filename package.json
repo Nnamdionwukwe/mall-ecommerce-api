@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "kill-port": "kill -9 $(lsof -ti:5000) 2>/dev/null || true",
+    "clean-start": "npm run kill-port && npm run dev"
   },
   "keywords": [],
   "author": "",
