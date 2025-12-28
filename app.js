@@ -131,6 +131,9 @@ app.use(
   })
 );
 
+const chatRoutes = require("./routes/chat");
+app.use("/api/chat", chatRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
