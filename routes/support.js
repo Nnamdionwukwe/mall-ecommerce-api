@@ -2,17 +2,26 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const { body, validationResult } = require("express-validator");
+const cloudinary = require("cloudinary").v2;
 const Support = require("../models/Support");
 const { auth, isAdmin } = require("../middleware/auth");
+
+// ================================================
+// CLOUDINARY CONFIGURATION
+// ================================================
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // ================================================
 // MULTER CONFIGURATION FOR FILE UPLOADS
 // ================================================
 
-// Configure storage
-const storage = multer.memoryStorage(); // Store in memory for processing
+const storage = multer.memoryStorage();
 
-// File filter
 const fileFilter = (req, file, cb) => {
   const allowedImageTypes = [
     "image/jpeg",
@@ -35,62 +44,43 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Multer upload configuration
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max file size
-    files: 5, // Max 5 files per request
+    fileSize: 10 * 1024 * 1024,
+    files: 5,
   },
 });
 
 // ================================================
-// HELPER FUNCTION - UPLOAD TO CLOUDINARY (or your storage service)
+// HELPER FUNCTION - UPLOAD TO CLOUDINARY
 // ================================================
 
 const uploadToCloudinary = async (file) => {
-  // TODO: Replace with your actual cloud storage implementation
-  // Options: Cloudinary, AWS S3, Google Cloud Storage, Azure Blob Storage
-
-  // Example with Cloudinary:
-  /*
-  const cloudinary = require('cloudinary').v2;
-  
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-  
-  const result = await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        resource_type: 'auto',
-        folder: 'support-tickets',
+        resource_type: "auto", // Auto-detect image or video
+        folder: "support-tickets", // Organize in Cloudinary
+        quality: "auto", // Auto-optimize quality
       },
       (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
+        if (error) {
+          console.error("❌ Cloudinary upload error:", error);
+          reject(error);
+        } else {
+          console.log(`✅ Uploaded to Cloudinary: ${result.secure_url}`);
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+          });
+        }
       }
     );
+
     uploadStream.end(file.buffer);
   });
-  
-  return {
-    url: result.secure_url,
-    publicId: result.public_id,
-  };
-  */
-
-  // For now, return a placeholder
-  console.warn(
-    "⚠️ uploadToCloudinary not implemented. Add your cloud storage here."
-  );
-  return {
-    url: `https://placeholder.com/${file.originalname}`,
-    publicId: Date.now().toString(),
-  };
 };
 
 // ================================================
@@ -130,7 +120,7 @@ router.post(
         category,
         subject,
         message,
-        attachments: attachments || [], // Optional attachments from frontend
+        attachments: attachments || [],
       });
 
       await ticket.save();
@@ -165,24 +155,30 @@ router.post("/upload", upload.array("files", 5), async (req, res) => {
 
     const uploadedFiles = [];
 
-    // Process each file
     for (const file of req.files) {
       console.log(`📁 Processing file: ${file.originalname}`);
 
-      // Determine media type
       const mediaType = file.mimetype.startsWith("image/") ? "image" : "video";
 
-      // Upload to cloud storage
-      const uploadResult = await uploadToCloudinary(file);
+      try {
+        const uploadResult = await uploadToCloudinary(file);
 
-      uploadedFiles.push({
-        type: mediaType,
-        url: uploadResult.url,
-        filename: file.originalname,
-        size: file.size,
-        mimeType: file.mimetype,
-        uploadedAt: new Date(),
-      });
+        uploadedFiles.push({
+          type: mediaType,
+          url: uploadResult.url,
+          filename: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype,
+          uploadedAt: new Date(),
+        });
+      } catch (uploadError) {
+        console.error(`Failed to upload ${file.originalname}:`, uploadError);
+        return res.status(500).json({
+          success: false,
+          error: `Failed to upload ${file.originalname}`,
+          message: uploadError.message,
+        });
+      }
     }
 
     console.log(`✅ ${uploadedFiles.length} files uploaded successfully`);
@@ -233,7 +229,6 @@ router.post(
 
       const { name, email, category, subject, message } = req.body;
 
-      // Process uploaded files
       const attachments = [];
 
       if (req.files && req.files.length > 0) {
@@ -241,20 +236,32 @@ router.post(
           const mediaType = file.mimetype.startsWith("image/")
             ? "image"
             : "video";
-          const uploadResult = await uploadToCloudinary(file);
 
-          attachments.push({
-            type: mediaType,
-            url: uploadResult.url,
-            filename: file.originalname,
-            size: file.size,
-            mimeType: file.mimetype,
-            uploadedAt: new Date(),
-          });
+          try {
+            const uploadResult = await uploadToCloudinary(file);
+
+            attachments.push({
+              type: mediaType,
+              url: uploadResult.url,
+              filename: file.originalname,
+              size: file.size,
+              mimeType: file.mimetype,
+              uploadedAt: new Date(),
+            });
+          } catch (uploadError) {
+            console.error(
+              `Failed to upload ${file.originalname}:`,
+              uploadError
+            );
+            return res.status(500).json({
+              success: false,
+              error: `Failed to upload ${file.originalname}`,
+              message: uploadError.message,
+            });
+          }
         }
       }
 
-      // Create ticket
       const ticket = new Support({
         name,
         email,
@@ -277,6 +284,7 @@ router.post(
           ticketId: ticket._id,
           status: ticket.status,
           attachmentCount: attachments.length,
+          attachments: attachments, // Return Cloudinary URLs to frontend
         },
       });
     } catch (error) {
@@ -320,7 +328,6 @@ router.get("/:ticketId", auth, async (req, res) => {
       });
     }
 
-    // Check if user owns this ticket (or is admin)
     const isOwner =
       ticket.userId?.toString() === req.user.id ||
       ticket.email === req.user.email;
@@ -460,20 +467,33 @@ router.post(
         });
       }
 
-      // Process attachments if any
       const attachments = [];
+
       if (req.files && req.files.length > 0) {
         for (const file of req.files) {
           const mediaType = file.mimetype.startsWith("image/")
             ? "image"
             : "video";
-          const uploadResult = await uploadToCloudinary(file);
 
-          attachments.push({
-            type: mediaType,
-            url: uploadResult.url,
-            filename: file.originalname,
-          });
+          try {
+            const uploadResult = await uploadToCloudinary(file);
+
+            attachments.push({
+              type: mediaType,
+              url: uploadResult.url,
+              filename: file.originalname,
+            });
+          } catch (uploadError) {
+            console.error(
+              `Failed to upload ${file.originalname}:`,
+              uploadError
+            );
+            return res.status(500).json({
+              success: false,
+              error: `Failed to upload ${file.originalname}`,
+              message: uploadError.message,
+            });
+          }
         }
       }
 
@@ -486,7 +506,6 @@ router.post(
         });
       }
 
-      // Add response
       ticket.responses.push({
         adminId: req.user.id,
         message,
@@ -494,7 +513,6 @@ router.post(
         createdAt: new Date(),
       });
 
-      // Update status to in-progress if it was open
       if (ticket.status === "open") {
         ticket.status = "in-progress";
       }
