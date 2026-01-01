@@ -1,0 +1,57 @@
+[
+  {
+    "name": "Diclofenac injection zixa 75mg",
+    "description": "",
+    "price": 200,
+    "stock": 100,
+    "category": "Pharmacy",
+    "vendorId": "001",
+    "vendorName": "Ochacho Pharmacy",
+    "images": ["https://megacare.ng/media/image/2_oLFV6lp.png"],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "name": "Kincef ceftriaxone for injection 1mg",
+    "description": "",
+    "price": 2000,
+    "stock": 100,
+    "category": "Pharmacy",
+    "vendorId": "001",
+    "vendorName": "Ochacho Pharmacy",
+    "images": [
+      "https://vastoversdrugsandalliedproducts.com/wp-content/uploads/2024/08/PhotoRoom-20240907_075637_11.png"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "name": "Sterile water for injection",
+    "description": "",
+    "price": 150,
+    "stock": 100,
+    "category": "Pharmacy",
+    "vendorId": "001",
+    "vendorName": "Ochacho Pharmacy",
+    "images": [
+      "https://www.pfizerhospitalus.com/sites/default/files/child/images/Drug-0409-4887-20-Sterile-Water-for-Injection-USP%5B1%5D.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2025-01-01T00:00:00.000Z"
+    }
+  }
+]
