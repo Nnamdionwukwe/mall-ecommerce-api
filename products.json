@@ -1,7 +1,7 @@
 [
   {
     "name": "Diclofenac injection zixa 75mg",
-    "description": "",
+    "description": "Non-steroidal anti-inflammatory drug (NSAID) injection for pain and inflammation relief. Effective for acute pain management, post-operative care, and inflammatory conditions. For intramuscular use only.",
     "price": 200,
     "stock": 100,
     "category": "Pharmacy",
@@ -18,7 +18,7 @@
   },
   {
     "name": "Kincef ceftriaxone for injection 1mg",
-    "description": "",
+    "description": "Broad-spectrum cephalosporin antibiotic injection for treating bacterial infections. Effective against respiratory tract infections, urinary tract infections, and skin infections. For IM/IV administration.",
     "price": 2000,
     "stock": 100,
     "category": "Pharmacy",
