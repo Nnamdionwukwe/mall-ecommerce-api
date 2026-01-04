@@ -386,9 +386,10 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
         reference: orderId, // Use orderId as reference
         status: "pending",
         bankTransfer: {
-          bankName: "Zenith Bank",
-          accountName: "Ochacho Supermarket",
-          accountNumber: "1234567890",
+          bankName: "Monie Point",
+          accountName:
+            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+          accountNumber: "5165004578",
           amountExpected: total,
         },
       },
@@ -413,9 +414,10 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
         orderId,
         total,
         bankDetails: {
-          bankName: "Zenith Bank",
-          accountName: "Ochacho Supermarket",
-          accountNumber: "1234567890",
+          bankName: "Monie Point",
+          accountName:
+            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+          accountNumber: "5165004578",
         },
       });
     } catch (emailError) {
@@ -432,9 +434,10 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
         paymentStatus: "pending",
         total,
         bankDetails: {
-          bankName: "Zenith Bank",
-          accountName: "Ochacho Supermarket",
-          accountNumber: "1234567890",
+          bankName: "Monie Point",
+          accountName:
+            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+          accountNumber: "5165004578",
         },
         order,
       },
