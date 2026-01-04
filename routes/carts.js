@@ -1,3 +1,13 @@
+const express = require("express");
+const Cart = require("../models/Cart");
+const Product = require("../models/Product");
+const User = require("../models/User");
+const { auth, isAdmin } = require("../middleware/auth");
+
+const router = express.Router();
+
+console.log("✅ Carts routes loading...\n");
+
 // ================================================
 // ADMIN ROUTES - GET ALL USERS' CARTS
 // ================================================
@@ -365,8 +375,21 @@ router.get("/", auth, async (req, res) => {
       await cart.save();
     }
 
+    // ✅ FIXED: Format items with images
+    const formattedItems = validItems.map((item) => ({
+      _id: item._id,
+      productId: item.productId._id,
+      name: item.productId.name,
+      price: item.productId.price,
+      quantity: item.quantity,
+      image: item.productId.images?.[0] || "/placeholder.png",
+      images: item.productId.images || [],
+      category: item.productId.category,
+      stock: item.productId.stock,
+    }));
+
     // Calculate summary manually
-    const subtotal = validItems.reduce(
+    const subtotal = formattedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -380,8 +403,8 @@ router.get("/", auth, async (req, res) => {
       data: {
         _id: cart._id,
         userId: cart.userId,
-        items: validItems,
-        itemCount: validItems.length,
+        items: formattedItems,
+        itemCount: formattedItems.length,
         subtotal,
         shipping,
         tax,
@@ -398,7 +421,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// ✅ POST /add - Add item to cart (unchanged but with better logging)
+// ✅ POST /add - Add item to cart WITH IMAGES
 router.post("/add", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -441,7 +464,7 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`🔄 Adding item to cart...`);
 
-    // Add item (use your cart model method if it exists)
+    // Check if item exists
     const existingItem = cart.items.find(
       (item) =>
         item.productId?.toString() === productId ||
@@ -474,7 +497,22 @@ router.post("/add", auth, async (req, res) => {
     await cart.save();
     cart = await cart.populate("items.productId");
 
-    const subtotal = validItems.reduce(
+    // ✅ FIXED: Format items with images
+    const formattedItems = cart.items
+      .filter((item) => item.productId !== null)
+      .map((item) => ({
+        _id: item._id,
+        productId: item.productId._id,
+        name: item.productId.name,
+        price: item.productId.price,
+        quantity: item.quantity,
+        image: item.productId.images?.[0] || "/placeholder.png",
+        images: item.productId.images || [],
+        category: item.productId.category,
+        stock: item.productId.stock,
+      }));
+
+    const subtotal = formattedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -483,7 +521,7 @@ router.post("/add", auth, async (req, res) => {
     const total = subtotal + shipping + tax;
 
     console.log(
-      `✅ Cart updated successfully. Total items: ${validItems.length}`
+      `✅ Cart updated successfully. Total items: ${formattedItems.length}`
     );
 
     res.status(200).json({
@@ -491,8 +529,8 @@ router.post("/add", auth, async (req, res) => {
       message: "Item added to cart successfully",
       data: {
         _id: cart._id,
-        items: validItems,
-        itemCount: validItems.length,
+        items: formattedItems,
+        itemCount: formattedItems.length,
         subtotal,
         shipping,
         tax,
@@ -509,7 +547,7 @@ router.post("/add", auth, async (req, res) => {
   }
 });
 
-// ✅ DELETE /remove/:productId - Remove item from cart
+// ✅ DELETE /remove/:productId - Remove item from cart WITH PROPER IMAGE HANDLING
 router.delete("/remove/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -519,7 +557,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       `🗑️ [DELETE /remove] Removing item. User: ${userId}, Product: ${productId}`
     );
 
-    const cart = await Cart.findOne({ userId });
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
     if (!cart) {
       return res.status(404).json({
         success: false,
@@ -541,7 +579,21 @@ router.delete("/remove/:productId", auth, async (req, res) => {
 
     await cart.save();
 
-    const subtotal = cart.items.reduce(
+    // ✅ FIXED: Format items with images
+    const validItems = cart.items.filter((item) => item.productId !== null);
+    const formattedItems = validItems.map((item) => ({
+      _id: item._id,
+      productId: item.productId._id,
+      name: item.productId.name,
+      price: item.productId.price,
+      quantity: item.quantity,
+      image: item.productId.images?.[0] || "/placeholder.png",
+      images: item.productId.images || [],
+      category: item.productId.category,
+      stock: item.productId.stock,
+    }));
+
+    const subtotal = formattedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -556,8 +608,8 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       message: "Item removed from cart",
       data: {
         _id: cart._id,
-        items: cart.items,
-        itemCount: cart.items.length,
+        items: formattedItems,
+        itemCount: formattedItems.length,
         subtotal,
         shipping,
         tax,
@@ -574,7 +626,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
   }
 });
 
-// ✅ PATCH /update/:productId - Update item quantity
+// ✅ PATCH /update/:productId - Update item quantity WITH PROPER IMAGE HANDLING
 router.patch("/update/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -592,7 +644,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
-    const cart = await Cart.findOne({ userId });
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
     if (!cart) {
       return res.status(404).json({
         success: false,
@@ -623,7 +675,21 @@ router.patch("/update/:productId", auth, async (req, res) => {
 
     await cart.save();
 
-    const subtotal = cart.items.reduce(
+    // ✅ FIXED: Format items with images
+    const validItems = cart.items.filter((item) => item.productId !== null);
+    const formattedItems = validItems.map((item) => ({
+      _id: item._id,
+      productId: item.productId._id,
+      name: item.productId.name,
+      price: item.productId.price,
+      quantity: item.quantity,
+      image: item.productId.images?.[0] || "/placeholder.png",
+      images: item.productId.images || [],
+      category: item.productId.category,
+      stock: item.productId.stock,
+    }));
+
+    const subtotal = formattedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -638,8 +704,8 @@ router.patch("/update/:productId", auth, async (req, res) => {
       message: "Cart updated successfully",
       data: {
         _id: cart._id,
-        items: cart.items,
-        itemCount: cart.items.length,
+        items: formattedItems,
+        itemCount: formattedItems.length,
         subtotal,
         shipping,
         tax,
@@ -701,7 +767,7 @@ router.delete("/clear", auth, async (req, res) => {
   }
 });
 
-// ✅ FIXED: GET /summary - Get cart summary
+// ✅ FIXED: GET /summary - Get cart summary WITH IMAGES
 router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -724,15 +790,21 @@ router.get("/summary", auth, async (req, res) => {
       });
     }
 
-    // ✅ Filter null products
+    // ✅ FIXED: Filter and format items with images
     const validItems = cart.items.filter((item) => item.productId !== null);
+    const formattedItems = validItems.map((item) => ({
+      _id: item._id,
+      productId: item.productId._id,
+      name: item.productId.name,
+      price: item.productId.price,
+      quantity: item.quantity,
+      image: item.productId.images?.[0] || "/placeholder.png",
+      images: item.productId.images || [],
+      category: item.productId.category,
+      stock: item.productId.stock,
+    }));
 
-    if (validItems.length < cart.items.length) {
-      cart.items = validItems;
-      await cart.save();
-    }
-
-    const subtotal = validItems.reduce(
+    const subtotal = formattedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
@@ -743,8 +815,8 @@ router.get("/summary", auth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        items: validItems,
-        itemCount: validItems.length,
+        items: formattedItems,
+        itemCount: formattedItems.length,
         subtotal,
         shipping,
         tax,
@@ -760,5 +832,7 @@ router.get("/summary", auth, async (req, res) => {
     });
   }
 });
+
+console.log("✅ Carts routes ready\n");
 
 module.exports = router;
