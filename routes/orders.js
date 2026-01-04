@@ -310,6 +310,263 @@ router.post("/verify-payment", auth, async (req, res) => {
   }
 });
 
+// Create Bank Transfer Order
+router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
+  try {
+    const {
+      orderId,
+      shippingInfo,
+      items,
+      subtotal,
+      shipping,
+      tax,
+      total,
+      orderNote,
+    } = req.body;
+    const userId = req.user.id; // From auth middleware
+
+    // Validation
+    if (!orderId || !shippingInfo || !items || !total) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    if (
+      !shippingInfo.fullName ||
+      !shippingInfo.email ||
+      !shippingInfo.phone ||
+      !shippingInfo.address ||
+      !shippingInfo.city ||
+      !shippingInfo.state
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All shipping information fields are required",
+      });
+    }
+
+    if (items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cart cannot be empty",
+      });
+    }
+
+    // Create order in database
+    const order = new Order({
+      _id: orderId,
+      userId,
+      items: items.map((item) => ({
+        productId: item._id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.images?.[0] || null,
+      })),
+      shippingInfo: {
+        fullName: shippingInfo.fullName,
+        email: shippingInfo.email,
+        phone: shippingInfo.phone,
+        address: shippingInfo.address,
+        city: shippingInfo.city,
+        state: shippingInfo.state,
+        zipCode: shippingInfo.zipCode || "",
+      },
+      pricing: {
+        subtotal,
+        shipping,
+        tax,
+        total,
+      },
+      paymentMethod: "bank_transfer",
+      paymentStatus: "pending", // Payment is pending until user transfers money
+      orderStatus: "pending_payment",
+      orderNote: orderNote || "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await order.save();
+
+    // Log the order creation
+    console.log("✅ Bank transfer order created:", {
+      orderId,
+      userId,
+      total,
+      paymentStatus: "pending",
+    });
+
+    // Send confirmation email (optional)
+    try {
+      await sendBankTransferConfirmationEmail({
+        email: shippingInfo.email,
+        fullName: shippingInfo.fullName,
+        orderId,
+        total,
+        bankDetails: {
+          bankName: "Zenith Bank",
+          accountName: "Ochacho Supermarket",
+          accountNumber: "1234567890",
+        },
+      });
+    } catch (emailError) {
+      console.error("Error sending confirmation email:", emailError);
+      // Don't fail the order if email fails
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully. Please complete the bank transfer.",
+      data: {
+        orderId,
+        paymentMethod: "bank_transfer",
+        paymentStatus: "pending",
+        total,
+        bankDetails: {
+          bankName: "Zenith Bank",
+          accountName: "Ochacho Supermarket",
+          accountNumber: "1234567890",
+        },
+        order,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error creating bank transfer order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create order",
+      error: error.message,
+    });
+  }
+});
+
+// Verify Bank Transfer Payment (Optional - for admin to manually verify)
+router.post(
+  "/verify-bank-transfer/:orderId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { transactionId, amountReceived } = req.body;
+
+      // Find order
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
+
+      // Verify amount matches
+      if (amountReceived < order.pricing.total) {
+        return res.status(400).json({
+          success: false,
+          message: `Amount received (₦${amountReceived}) is less than required (₦${order.pricing.total})`,
+        });
+      }
+
+      // Update order status
+      order.paymentStatus = "completed";
+      order.orderStatus = "confirmed";
+      order.paymentDetails = {
+        paymentMethod: "bank_transfer",
+        transactionId,
+        amountReceived,
+        verifiedAt: new Date(),
+      };
+
+      await order.save();
+
+      console.log("✅ Bank transfer verified for order:", orderId);
+
+      res.json({
+        success: true,
+        message: "Payment verified successfully",
+        data: order,
+      });
+    } catch (error) {
+      console.error("❌ Error verifying bank transfer:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to verify payment",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// Get pending bank transfers (for admin dashboard)
+router.get("/pending-bank-transfers", authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admins can access this",
+      });
+    }
+
+    const pendingOrders = await Order.find({
+      paymentMethod: "bank_transfer",
+      paymentStatus: "pending",
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({
+      success: true,
+      data: pendingOrders,
+      count: pendingOrders.length,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching pending transfers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch pending transfers",
+      error: error.message,
+    });
+  }
+});
+
+// Optional: Email function for bank transfer confirmation
+async function sendBankTransferConfirmationEmail({
+  email,
+  fullName,
+  orderId,
+  total,
+  bankDetails,
+}) {
+  // Using nodemailer or your email service
+  const emailTemplate = `
+    <h2>Order Confirmation - Bank Transfer Required</h2>
+    <p>Hi ${fullName},</p>
+    <p>Your order <strong>${orderId}</strong> has been created successfully!</p>
+    
+    <h3>Next Steps:</h3>
+    <p>Please transfer <strong>₦${total.toLocaleString()}</strong> to the account below:</p>
+    
+    <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <p><strong>Bank Name:</strong> ${bankDetails.bankName}</p>
+      <p><strong>Account Name:</strong> ${bankDetails.accountName}</p>
+      <p><strong>Account Number:</strong> ${bankDetails.accountNumber}</p>
+      <p><strong>Reference:</strong> ${orderId}</p>
+    </div>
+    
+    <p>Your order will be confirmed within 2-4 hours of payment verification.</p>
+    <p>Thank you for shopping with us!</p>
+  `;
+
+  // Example using nodemailer
+  // await transporter.sendMail({
+  //   to: email,
+  //   subject: `Order Confirmation - ${orderId}`,
+  //   html: emailTemplate,
+  // });
+}
+
 // ================================================
 // ADMIN ROUTES (Must come BEFORE dynamic :orderId routes)
 // ================================================

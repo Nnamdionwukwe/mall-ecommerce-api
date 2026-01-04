@@ -124,10 +124,53 @@ const orderSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+      // ✅ NEW: Bank Transfer specific fields
+      bankTransfer: {
+        bankName: {
+          type: String,
+          default: null,
+        },
+        accountName: {
+          type: String,
+          default: null,
+        },
+        accountNumber: {
+          type: String,
+          default: null,
+        },
+        amountExpected: {
+          type: Number,
+          default: null,
+        },
+        amountReceived: {
+          type: Number,
+          default: null,
+        },
+        verifiedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        verifiedAt: {
+          type: Date,
+          default: null,
+        },
+        bankStatementProof: {
+          type: String,
+          default: null, // URL to uploaded proof
+        },
+      },
     },
     status: {
       type: String,
-      enum: ["processing", "shipped", "delivered", "cancelled", "returned"],
+      enum: [
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+        "returned",
+        "pending_payment",
+      ],
       default: "processing",
       index: true,
     },
@@ -181,12 +224,12 @@ const orderSchema = new mongoose.Schema(
 
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ "paymentInfo.method": 1, "paymentInfo.status": 1 });
 
 // ================================================
-// PRE-SAVE MIDDLEWARE - FIXED WITH ASYNC/AWAIT
+// PRE-SAVE MIDDLEWARE
 // ================================================
 
-// ✅ FIXED: Using async/await (no next parameter needed)
 orderSchema.pre("save", async function () {
   try {
     console.log(
@@ -204,6 +247,12 @@ orderSchema.pre("save", async function () {
     ) {
       console.log(`✅ [Order pre-save] Setting paidAt timestamp`);
       this.paymentInfo.paidAt = new Date();
+
+      // Update order status if payment is completed
+      if (this.status === "pending_payment") {
+        this.status = "processing";
+        console.log(`✅ [Order pre-save] Order status changed to processing`);
+      }
     }
 
     console.log(`✅ [Order pre-save] Pre-save complete`);
@@ -252,6 +301,54 @@ orderSchema.methods.addNote = async function (message, userId) {
     console.error(`❌ [addNote] Error: ${error.message}`);
     throw error;
   }
+};
+
+// ✅ NEW: Method to verify bank transfer payment
+orderSchema.methods.verifyBankTransfer = async function (
+  amountReceived,
+  verifiedBy,
+  bankStatementProof = null
+) {
+  try {
+    console.log(
+      `🏦 [verifyBankTransfer] Verifying bank transfer for order: ${this.orderId}`
+    );
+
+    // Check if amount matches
+    if (amountReceived < this.pricing.total) {
+      throw new Error(
+        `Amount received (₦${amountReceived}) is less than required (₦${this.pricing.total})`
+      );
+    }
+
+    // Update payment info
+    this.paymentInfo.status = "paid";
+    this.paymentInfo.paidAt = new Date();
+    this.paymentInfo.bankTransfer.amountReceived = amountReceived;
+    this.paymentInfo.bankTransfer.verifiedBy = verifiedBy;
+    this.paymentInfo.bankTransfer.verifiedAt = new Date();
+    if (bankStatementProof) {
+      this.paymentInfo.bankTransfer.bankStatementProof = bankStatementProof;
+    }
+
+    // Update order status
+    this.status = "processing";
+
+    const saved = await this.save();
+    console.log(`✅ [verifyBankTransfer] Bank transfer verified successfully`);
+    return saved;
+  } catch (error) {
+    console.error(`❌ [verifyBankTransfer] Error: ${error.message}`);
+    throw error;
+  }
+};
+
+// ✅ NEW: Method to check if payment is pending
+orderSchema.methods.isPendingPayment = function () {
+  return (
+    this.paymentInfo.status === "pending" &&
+    this.paymentInfo.method === "bank_transfer"
+  );
 };
 
 // Method to check if order can be cancelled
@@ -325,6 +422,54 @@ orderSchema.statics.findByPaymentReference = function (reference) {
       error.message
     );
     return null;
+  }
+};
+
+// ✅ NEW: Static method to find pending bank transfers
+orderSchema.statics.findPendingBankTransfers = async function (userId = null) {
+  try {
+    const query = {
+      "paymentInfo.method": "bank_transfer",
+      "paymentInfo.status": "pending",
+    };
+
+    if (userId) {
+      query.userId = userId;
+    }
+
+    return this.find(query)
+      .populate("userId", "name email phone")
+      .sort({ createdAt: -1 });
+  } catch (error) {
+    console.error("❌ Error finding pending bank transfers:", error.message);
+    return [];
+  }
+};
+
+// ✅ NEW: Static method to get bank transfer stats
+orderSchema.statics.getBankTransferStats = async function (userId = null) {
+  try {
+    const query = { "paymentInfo.method": "bank_transfer" };
+
+    if (userId) {
+      query.userId = userId;
+    }
+
+    const stats = await this.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$paymentInfo.status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$pricing.total" },
+        },
+      },
+    ]);
+
+    return stats;
+  } catch (error) {
+    console.error("❌ Error getting bank transfer stats:", error.message);
+    return [];
   }
 };
 
