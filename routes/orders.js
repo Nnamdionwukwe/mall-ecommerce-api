@@ -311,136 +311,136 @@ router.post("/verify-payment", auth, async (req, res) => {
 });
 
 // Create Bank Transfer Order
-router.post("/create-bank-transfer", auth, async (req, res) => {
-  try {
-    const {
-      orderId,
-      shippingInfo,
-      items,
-      subtotal,
-      shipping,
-      tax,
-      total,
-      orderNote,
-    } = req.body;
-    const userId = req.user.id; // From auth middleware
+// router.post("/create-bank-transfer", auth, async (req, res) => {
+//   try {
+//     const {
+//       orderId,
+//       shippingInfo,
+//       items,
+//       subtotal,
+//       shipping,
+//       tax,
+//       total,
+//       orderNote,
+//     } = req.body;
+//     const userId = req.user.id; // From auth middleware
 
-    // Validation
-    if (!orderId || !shippingInfo || !items || !total) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
-    }
+//     // Validation
+//     if (!orderId || !shippingInfo || !items || !total) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Missing required fields",
+//       });
+//     }
 
-    if (
-      !shippingInfo.fullName ||
-      !shippingInfo.email ||
-      !shippingInfo.phone ||
-      !shippingInfo.address ||
-      !shippingInfo.city ||
-      !shippingInfo.state
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "All shipping information fields are required",
-      });
-    }
+//     if (
+//       !shippingInfo.fullName ||
+//       !shippingInfo.email ||
+//       !shippingInfo.phone ||
+//       !shippingInfo.address ||
+//       !shippingInfo.city ||
+//       !shippingInfo.state
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "All shipping information fields are required",
+//       });
+//     }
 
-    if (items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cart cannot be empty",
-      });
-    }
+//     if (items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Cart cannot be empty",
+//       });
+//     }
 
-    // Create order in database
-    const order = new Order({
-      _id: orderId,
-      userId,
-      items: items.map((item) => ({
-        productId: item._id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.images?.[0] || null,
-      })),
-      shippingInfo: {
-        fullName: shippingInfo.fullName,
-        email: shippingInfo.email,
-        phone: shippingInfo.phone,
-        address: shippingInfo.address,
-        city: shippingInfo.city,
-        state: shippingInfo.state,
-        zipCode: shippingInfo.zipCode || "",
-      },
-      pricing: {
-        subtotal,
-        shipping,
-        tax,
-        total,
-      },
-      paymentMethod: "bank_transfer",
-      paymentStatus: "pending", // Payment is pending until user transfers money
-      orderStatus: "pending_payment",
-      orderNote: orderNote || "",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+//     // Create order in database
+//     const order = new Order({
+//       _id: orderId,
+//       userId,
+//       items: items.map((item) => ({
+//         productId: item._id,
+//         name: item.name,
+//         price: item.price,
+//         quantity: item.quantity,
+//         image: item.images?.[0] || null,
+//       })),
+//       shippingInfo: {
+//         fullName: shippingInfo.fullName,
+//         email: shippingInfo.email,
+//         phone: shippingInfo.phone,
+//         address: shippingInfo.address,
+//         city: shippingInfo.city,
+//         state: shippingInfo.state,
+//         zipCode: shippingInfo.zipCode || "",
+//       },
+//       pricing: {
+//         subtotal,
+//         shipping,
+//         tax,
+//         total,
+//       },
+//       paymentMethod: "bank_transfer",
+//       paymentStatus: "pending", // Payment is pending until user transfers money
+//       orderStatus: "pending_payment",
+//       orderNote: orderNote || "",
+//       createdAt: new Date(),
+//       updatedAt: new Date(),
+//     });
 
-    await order.save();
+//     await order.save();
 
-    // Log the order creation
-    console.log("✅ Bank transfer order created:", {
-      orderId,
-      userId,
-      total,
-      paymentStatus: "pending",
-    });
+//     // Log the order creation
+//     console.log("✅ Bank transfer order created:", {
+//       orderId,
+//       userId,
+//       total,
+//       paymentStatus: "pending",
+//     });
 
-    // Send confirmation email (optional)
-    try {
-      await sendBankTransferConfirmationEmail({
-        email: shippingInfo.email,
-        fullName: shippingInfo.fullName,
-        orderId,
-        total,
-        bankDetails: {
-          bankName: "Zenith Bank",
-          accountName: "Ochacho Supermarket",
-          accountNumber: "1234567890",
-        },
-      });
-    } catch (emailError) {
-      console.error("Error sending confirmation email:", emailError);
-      // Don't fail the order if email fails
-    }
+//     // Send confirmation email (optional)
+//     try {
+//       await sendBankTransferConfirmationEmail({
+//         email: shippingInfo.email,
+//         fullName: shippingInfo.fullName,
+//         orderId,
+//         total,
+//         bankDetails: {
+//           bankName: "Zenith Bank",
+//           accountName: "Ochacho Supermarket",
+//           accountNumber: "1234567890",
+//         },
+//       });
+//     } catch (emailError) {
+//       console.error("Error sending confirmation email:", emailError);
+//       // Don't fail the order if email fails
+//     }
 
-    res.status(201).json({
-      success: true,
-      message: "Order created successfully. Please complete the bank transfer.",
-      data: {
-        orderId,
-        paymentMethod: "bank_transfer",
-        paymentStatus: "pending",
-        total,
-        bankDetails: {
-          bankName: "Zenith Bank",
-          accountName: "Ochacho Supermarket",
-          accountNumber: "1234567890",
-        },
-        order,
-      },
-    });
-  } catch (error) {
-    console.error("❌ Error creating bank transfer order:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to create order",
-      error: error.message,
-    });
-  }
-});
+//     res.status(201).json({
+//       success: true,
+//       message: "Order created successfully. Please complete the bank transfer.",
+//       data: {
+//         orderId,
+//         paymentMethod: "bank_transfer",
+//         paymentStatus: "pending",
+//         total,
+//         bankDetails: {
+//           bankName: "Zenith Bank",
+//           accountName: "Ochacho Supermarket",
+//           accountNumber: "1234567890",
+//         },
+//         order,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Error creating bank transfer order:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to create order",
+//       error: error.message,
+//     });
+//   }
+// });
 
 // ✅ FIXED: Create Bank Transfer Order
 router.post("/create-bank-transfer", auth, async (req, res) => {
