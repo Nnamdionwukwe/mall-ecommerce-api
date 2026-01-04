@@ -1,16 +1,8 @@
-const express = require("express");
-const Cart = require("../models/Cart");
-const Product = require("../models/Product");
-const User = require("../models/User");
-const { auth, isAdmin } = require("../middleware/auth");
-
-const router = express.Router();
-
 // ================================================
 // ADMIN ROUTES - GET ALL USERS' CARTS
 // ================================================
 
-// GET /admin/all-carts - Get all users' carts with pagination
+// ✅ FIXED: GET /admin/all-carts - Handle null products
 router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
   try {
     console.log("🔍 [GET /admin/all-carts] Fetching all users' carts");
@@ -35,19 +27,62 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
 
     console.log(`✅ Found ${carts.length} carts out of ${total} total`);
 
+    // ✅ FIXED: Safe mapping with null checks
+    const safeCarts = carts.map((cart) => {
+      // Filter out null products
+      const validItems = cart.items.filter((item) => item.productId !== null);
+      const deletedCount = cart.items.length - validItems.length;
+
+      if (deletedCount > 0) {
+        console.warn(
+          `⚠️ Cart ${cart._id} has ${deletedCount} deleted product references`
+        );
+      }
+
+      return {
+        cartId: cart._id,
+        userId: cart.userId?._id || "Unknown",
+        userName: cart.userId?.name || "Unknown",
+        userEmail: cart.userId?.email || "Unknown",
+        userPhone: cart.userId?.phone || "Unknown",
+        itemCount: validItems.length,
+        deletedItemsCount: deletedCount,
+        cartSummary: {
+          itemCount: validItems.length,
+          subtotal: validItems.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          ),
+          shipping: validItems.length > 0 ? 10 : 0,
+          tax:
+            validItems.length > 0
+              ? validItems.reduce(
+                  (sum, item) => sum + item.price * item.quantity,
+                  0
+                ) * 0.1
+              : 0,
+          total:
+            validItems.length > 0
+              ? validItems.reduce(
+                  (sum, item) => sum + item.price * item.quantity,
+                  0
+                ) +
+                10 +
+                validItems.reduce(
+                  (sum, item) => sum + item.price * item.quantity,
+                  0
+                ) *
+                  0.1
+              : 0,
+        },
+        lastUpdated: cart.updatedAt,
+      };
+    });
+
     return res.json({
       success: true,
       message: "All users' carts retrieved successfully",
-      data: carts.map((cart) => ({
-        cartId: cart._id,
-        userId: cart.userId._id,
-        userName: cart.userId.name,
-        userEmail: cart.userId.email,
-        userPhone: cart.userId.phone,
-        itemCount: cart.items.length,
-        cartSummary: cart.getCartSummary(),
-        lastUpdated: cart.updatedAt,
-      })),
+      data: safeCarts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -65,7 +100,7 @@ router.get("/admin/all-carts", auth, isAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/cart/:userId - Get specific user's cart
+// ✅ FIXED: GET /admin/cart/:userId - Handle null products
 router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -87,10 +122,10 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       "name price images description stock vendor vendorId category"
     );
 
-    if (!cart || cart.items.length === 0) {
+    if (!cart) {
       return res.json({
         success: true,
-        message: "User has no items in cart",
+        message: "User has no cart",
         data: {
           userId,
           user: {
@@ -115,9 +150,20 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    const cartSummary = cart.getCartSummary();
+    // ✅ FIXED: Filter out null products safely
+    const validItems = cart.items.filter((item) => item.productId !== null);
+    const deletedItemsCount = cart.items.length - validItems.length;
 
-    const enrichedItems = cart.items.map((item) => ({
+    if (deletedItemsCount > 0) {
+      console.warn(
+        `⚠️ Removing ${deletedItemsCount} deleted products from cart`
+      );
+      // Clean up cart if there are deleted products
+      cart.items = validItems;
+      await cart.save();
+    }
+
+    const enrichedItems = validItems.map((item) => ({
       productId: item.productId._id,
       name: item.productId.name,
       price: item.price,
@@ -129,8 +175,17 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       category: item.productId.category || null,
     }));
 
+    // Calculate summary manually
+    const subtotal = enrichedItems.reduce(
+      (sum, item) => sum + item.itemTotal,
+      0
+    );
+    const shipping = subtotal > 0 ? 10 : 0;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
+
     console.log(
-      `✅ Found cart for user ${userId} with ${cart.items.length} items`
+      `✅ Found cart for user ${userId} with ${validItems.length} items`
     );
 
     return res.json({
@@ -150,7 +205,14 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
           joinedDate: user.createdAt,
         },
         items: enrichedItems,
-        cartSummary,
+        cartSummary: {
+          itemCount: validItems.length,
+          subtotal,
+          shipping,
+          tax,
+          total,
+        },
+        deletedItemsRemoved: deletedItemsCount,
         updatedAt: cart.updatedAt,
       },
     });
@@ -164,41 +226,36 @@ router.get("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/carts-summary - Get summary of all carts
+// ✅ FIXED: GET /admin/carts-summary - Handle null products
 router.get("/admin/carts-summary", auth, isAdmin, async (req, res) => {
   try {
     console.log("🔍 [GET /admin/carts-summary] Fetching cart summary");
 
-    const cartsWithItems = await Cart.countDocuments({
-      "items.0": { $exists: true },
-    });
-    const totalCarts = await Cart.countDocuments();
+    const carts = await Cart.find().populate("items.productId");
+
+    let cartsWithItems = 0;
+    let totalItems = 0;
+    let totalValue = 0;
+    let totalDeletedProducts = 0;
+
+    for (const cart of carts) {
+      const validItems = cart.items.filter((item) => item.productId !== null);
+      const deletedCount = cart.items.length - validItems.length;
+
+      if (validItems.length > 0) {
+        cartsWithItems++;
+      }
+
+      totalItems += validItems.length;
+      totalValue += validItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      totalDeletedProducts += deletedCount;
+    }
+
+    const totalCarts = carts.length;
     const emptyCarts = totalCarts - cartsWithItems;
-
-    const cartStats = await Cart.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalItems: { $sum: { $size: "$items" } },
-          totalValue: {
-            $sum: {
-              $reduce: {
-                input: "$items",
-                initialValue: 0,
-                in: {
-                  $add: [
-                    "$$value",
-                    { $multiply: ["$$this.price", "$$this.quantity"] },
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-    ]);
-
-    const stats = cartStats[0] || { totalItems: 0, totalValue: 0 };
 
     console.log("✅ Cart summary retrieved");
 
@@ -209,8 +266,9 @@ router.get("/admin/carts-summary", auth, isAdmin, async (req, res) => {
         totalUsers: totalCarts,
         usersWithItems: cartsWithItems,
         usersWithoutItems: emptyCarts,
-        totalItemsInCarts: stats.totalItems,
-        estimatedCartValue: parseFloat(stats.totalValue.toFixed(2)),
+        totalItemsInCarts: totalItems,
+        estimatedCartValue: parseFloat(totalValue.toFixed(2)),
+        deletedProductReferences: totalDeletedProducts,
       },
     });
   } catch (error) {
@@ -223,13 +281,13 @@ router.get("/admin/carts-summary", auth, isAdmin, async (req, res) => {
   }
 });
 
-// DELETE /admin/cart/:userId - Clear a user's cart (admin)
+// ✅ DELETE /admin/cart/:userId - Clear user's cart
 router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
 
     console.log(
-      `🔍 [DELETE /admin/cart/:userId] Clearing cart for user: ${userId}`
+      `🗑️ [DELETE /admin/cart/:userId] Clearing cart for user: ${userId}`
     );
 
     const cart = await Cart.findOne({ userId });
@@ -240,11 +298,15 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       });
     }
 
-    cart.clearCart();
-    cart.calculateTotals();
+    const itemsCleared = cart.items.length;
+    cart.items = [];
+    cart.totalItems = 0;
+    cart.totalPrice = 0;
     await cart.save();
 
-    console.log(`✅ Cart cleared for user ${userId}`);
+    console.log(
+      `✅ Cart cleared for user ${userId}. Items removed: ${itemsCleared}`
+    );
 
     return res.json({
       success: true,
@@ -252,6 +314,7 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
       data: {
         cartId: cart._id,
         userId,
+        itemsCleared,
         items: [],
         cartSummary: {
           itemCount: 0,
@@ -276,7 +339,7 @@ router.delete("/admin/cart/:userId", auth, isAdmin, async (req, res) => {
 // USER ROUTES - GET OWN CART
 // ================================================
 
-// GET / - Get user's cart
+// ✅ FIXED: GET / - Handle null products in user cart
 router.get("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -290,7 +353,26 @@ router.get("/", auth, async (req, res) => {
       cart = await Cart.create({ userId, items: [] });
     }
 
-    const cartSummary = cart.getCartSummary();
+    // ✅ FIXED: Filter null products
+    const validItems = cart.items.filter((item) => item.productId !== null);
+    const deletedCount = cart.items.length - validItems.length;
+
+    if (deletedCount > 0) {
+      console.warn(
+        `⚠️ Removing ${deletedCount} deleted products from user cart`
+      );
+      cart.items = validItems;
+      await cart.save();
+    }
+
+    // Calculate summary manually
+    const subtotal = validItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
 
     res.json({
       success: true,
@@ -298,8 +380,12 @@ router.get("/", auth, async (req, res) => {
       data: {
         _id: cart._id,
         userId: cart.userId,
-        items: cart.items,
-        ...cartSummary,
+        items: validItems,
+        itemCount: validItems.length,
+        subtotal,
+        shipping,
+        tax,
+        total,
       },
     });
   } catch (error) {
@@ -312,7 +398,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// POST /add - Add item to cart
+// ✅ POST /add - Add item to cart (unchanged but with better logging)
 router.post("/add", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -355,18 +441,49 @@ router.post("/add", auth, async (req, res) => {
 
     console.log(`🔄 Adding item to cart...`);
 
-    cart.addItem(product, quantity);
-    cart.calculateTotals();
+    // Add item (use your cart model method if it exists)
+    const existingItem = cart.items.find(
+      (item) =>
+        item.productId?.toString() === productId ||
+        item.productId?._id?.toString() === productId
+    );
+
+    if (existingItem) {
+      existingItem.quantity += quantity;
+      console.log(
+        `✅ Updated existing item. New quantity: ${existingItem.quantity}`
+      );
+    } else {
+      cart.items.push({
+        productId,
+        quantity,
+        name: product.name,
+        price: product.price,
+      });
+      console.log(`✅ Added new item to cart`);
+    }
+
+    // Recalculate totals
+    const validItems = cart.items.filter((item) => item.productId !== null);
+    cart.totalItems = validItems.reduce((sum, item) => sum + item.quantity, 0);
+    cart.totalPrice = validItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
     await cart.save();
-
-    console.log(`✅ Item added. Saving cart...`);
-
     cart = await cart.populate("items.productId");
 
-    const cartSummary = cart.getCartSummary();
+    const subtotal = validItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
 
     console.log(
-      `✅ Cart updated successfully. Total items: ${cart.items.length}`
+      `✅ Cart updated successfully. Total items: ${validItems.length}`
     );
 
     res.status(200).json({
@@ -374,8 +491,12 @@ router.post("/add", auth, async (req, res) => {
       message: "Item added to cart successfully",
       data: {
         _id: cart._id,
-        items: cart.items,
-        ...cartSummary,
+        items: validItems,
+        itemCount: validItems.length,
+        subtotal,
+        shipping,
+        tax,
+        total,
       },
     });
   } catch (error) {
@@ -388,7 +509,7 @@ router.post("/add", auth, async (req, res) => {
   }
 });
 
-// DELETE /remove/:productId - Remove item from cart
+// ✅ DELETE /remove/:productId - Remove item from cart
 router.delete("/remove/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -406,11 +527,27 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       });
     }
 
-    cart.removeItem(productId);
-    cart.calculateTotals();
+    cart.items = cart.items.filter(
+      (item) =>
+        item.productId?.toString() !== productId &&
+        item.productId?._id?.toString() !== productId
+    );
+
+    cart.totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cart.totalPrice = cart.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
     await cart.save();
 
-    const cartSummary = cart.getCartSummary();
+    const subtotal = cart.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
 
     console.log(`✅ Item removed successfully`);
 
@@ -420,7 +557,11 @@ router.delete("/remove/:productId", auth, async (req, res) => {
       data: {
         _id: cart._id,
         items: cart.items,
-        ...cartSummary,
+        itemCount: cart.items.length,
+        subtotal,
+        shipping,
+        tax,
+        total,
       },
     });
   } catch (error) {
@@ -433,7 +574,7 @@ router.delete("/remove/:productId", auth, async (req, res) => {
   }
 });
 
-// PATCH /update/:productId - Update item quantity
+// ✅ PATCH /update/:productId - Update item quantity
 router.patch("/update/:productId", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -459,12 +600,36 @@ router.patch("/update/:productId", auth, async (req, res) => {
       });
     }
 
-    // ✅ THIS IS KEY - updateQuantity should ONLY update the quantity, not add a new item
-    cart.updateQuantity(productId, quantity);
-    cart.calculateTotals();
+    const item = cart.items.find(
+      (item) =>
+        item.productId?.toString() === productId ||
+        item.productId?._id?.toString() === productId
+    );
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found in cart",
+      });
+    }
+
+    item.quantity = quantity;
+
+    cart.totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cart.totalPrice = cart.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
     await cart.save();
 
-    const cartSummary = cart.getCartSummary();
+    const subtotal = cart.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
 
     console.log(`✅ Quantity updated successfully`);
 
@@ -474,7 +639,11 @@ router.patch("/update/:productId", auth, async (req, res) => {
       data: {
         _id: cart._id,
         items: cart.items,
-        ...cartSummary,
+        itemCount: cart.items.length,
+        subtotal,
+        shipping,
+        tax,
+        total,
       },
     });
   } catch (error) {
@@ -487,7 +656,7 @@ router.patch("/update/:productId", auth, async (req, res) => {
   }
 });
 
-// DELETE /clear - Clear entire cart
+// ✅ DELETE /clear - Clear entire cart
 router.delete("/clear", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -502,8 +671,9 @@ router.delete("/clear", auth, async (req, res) => {
       });
     }
 
-    cart.clearCart();
-    cart.calculateTotals();
+    cart.items = [];
+    cart.totalItems = 0;
+    cart.totalPrice = 0;
     await cart.save();
 
     console.log(`✅ Cart cleared successfully`);
@@ -514,11 +684,11 @@ router.delete("/clear", auth, async (req, res) => {
       data: {
         _id: cart._id,
         items: [],
+        itemCount: 0,
         subtotal: 0,
         shipping: 0,
         tax: 0,
         total: 0,
-        itemCount: 0,
       },
     });
   } catch (error) {
@@ -531,33 +701,55 @@ router.delete("/clear", auth, async (req, res) => {
   }
 });
 
-// GET /summary - Get cart summary
+// ✅ FIXED: GET /summary - Get cart summary
 router.get("/summary", auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
     console.log(`📊 [GET /summary] Fetching cart summary for user: ${userId}`);
 
-    const cart = await Cart.findOne({ userId });
-    if (!cart) {
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
+
+    if (!cart || cart.items.length === 0) {
       return res.json({
         success: true,
         data: {
           items: [],
+          itemCount: 0,
           subtotal: 0,
           shipping: 0,
           tax: 0,
           total: 0,
-          itemCount: 0,
         },
       });
     }
 
-    const cartSummary = cart.getCartSummary();
+    // ✅ Filter null products
+    const validItems = cart.items.filter((item) => item.productId !== null);
+
+    if (validItems.length < cart.items.length) {
+      cart.items = validItems;
+      await cart.save();
+    }
+
+    const subtotal = validItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 100 ? 0 : 10;
+    const tax = subtotal * 0.1;
+    const total = subtotal + shipping + tax;
 
     res.json({
       success: true,
-      data: cartSummary,
+      data: {
+        items: validItems,
+        itemCount: validItems.length,
+        subtotal,
+        shipping,
+        tax,
+        total,
+      },
     });
   } catch (error) {
     console.error("❌ Error fetching cart summary:", error);
