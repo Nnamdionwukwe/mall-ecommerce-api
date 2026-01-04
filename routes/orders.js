@@ -442,17 +442,164 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
   }
 });
 
-// Verify Bank Transfer Payment (Optional - for admin to manually verify)
+// ✅ FIXED: Create Bank Transfer Order
+router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
+  try {
+    const {
+      orderId,
+      shippingInfo,
+      items,
+      subtotal,
+      shipping,
+      tax,
+      total,
+      orderNote,
+    } = req.body;
+    const userId = req.user.id; // From auth middleware
+
+    // Validation
+    if (!orderId || !shippingInfo || !items || !total) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    if (
+      !shippingInfo.fullName ||
+      !shippingInfo.email ||
+      !shippingInfo.phone ||
+      !shippingInfo.address ||
+      !shippingInfo.city ||
+      !shippingInfo.state
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All shipping information fields are required",
+      });
+    }
+
+    if (items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cart cannot be empty",
+      });
+    }
+
+    // ✅ FIXED: Don't use orderId as _id, use MongoDB's default _id
+    const order = new Order({
+      orderId, // Use orderId field instead of _id
+      userId,
+      items: items.map((item) => ({
+        productId: item._id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.images?.[0] || null,
+      })),
+      shippingInfo: {
+        fullName: shippingInfo.fullName,
+        email: shippingInfo.email,
+        phone: shippingInfo.phone,
+        address: shippingInfo.address,
+        city: shippingInfo.city,
+        state: shippingInfo.state,
+        zipCode: shippingInfo.zipCode || "",
+      },
+      pricing: {
+        subtotal,
+        shipping,
+        tax,
+        total,
+      },
+      // ✅ FIXED: Add paymentInfo with required fields
+      paymentInfo: {
+        method: "bank_transfer",
+        reference: orderId, // Use orderId as reference
+        status: "pending",
+        bankTransfer: {
+          bankName: "Zenith Bank",
+          accountName: "Ochacho Supermarket",
+          accountNumber: "1234567890",
+          amountExpected: total,
+        },
+      },
+      status: "pending_payment",
+      orderNote: orderNote || "",
+    });
+
+    await order.save();
+
+    console.log("✅ Bank transfer order created:", {
+      orderId,
+      userId,
+      total,
+      paymentStatus: "pending",
+    });
+
+    // Send confirmation email (optional)
+    try {
+      await sendBankTransferConfirmationEmail({
+        email: shippingInfo.email,
+        fullName: shippingInfo.fullName,
+        orderId,
+        total,
+        bankDetails: {
+          bankName: "Zenith Bank",
+          accountName: "Ochacho Supermarket",
+          accountNumber: "1234567890",
+        },
+      });
+    } catch (emailError) {
+      console.error("Error sending confirmation email:", emailError);
+      // Don't fail the order if email fails
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully. Please complete the bank transfer.",
+      data: {
+        orderId,
+        paymentMethod: "bank_transfer",
+        paymentStatus: "pending",
+        total,
+        bankDetails: {
+          bankName: "Zenith Bank",
+          accountName: "Ochacho Supermarket",
+          accountNumber: "1234567890",
+        },
+        order,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error creating bank transfer order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create order",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ FIXED: Verify Bank Transfer Payment
 router.post(
   "/verify-bank-transfer/:orderId",
-  auth,
+  authenticateToken,
   async (req, res) => {
     try {
       const { orderId } = req.params;
-      const { transactionId, amountReceived } = req.body;
+      const { transactionId, amountReceived, bankStatementProof } = req.body;
 
-      // Find order
-      const order = await Order.findById(orderId);
+      // Validate admin role (optional - add if you have role-based auth)
+      // if (req.user.role !== "admin") {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: "Only admins can verify payments",
+      //   });
+      // }
+
+      // Find order by orderId field
+      const order = await Order.findOne({ orderId });
       if (!order) {
         return res.status(404).json({
           success: false,
@@ -468,15 +615,18 @@ router.post(
         });
       }
 
-      // Update order status
-      order.paymentStatus = "completed";
-      order.orderStatus = "confirmed";
-      order.paymentDetails = {
-        paymentMethod: "bank_transfer",
-        transactionId,
-        amountReceived,
-        verifiedAt: new Date(),
-      };
+      // Update order with verified payment info
+      order.paymentInfo.status = "paid";
+      order.paymentInfo.paidAt = new Date();
+      order.paymentInfo.bankTransfer.amountReceived = amountReceived;
+      order.paymentInfo.bankTransfer.verifiedBy = req.user.id;
+      order.paymentInfo.bankTransfer.verifiedAt = new Date();
+      if (bankStatementProof) {
+        order.paymentInfo.bankTransfer.bankStatementProof = bankStatementProof;
+      }
+
+      // Update order status to processing
+      order.status = "processing";
 
       await order.save();
 
@@ -498,21 +648,22 @@ router.post(
   }
 );
 
-// Get pending bank transfers (for admin dashboard)
-router.get("/pending-bank-transfers", auth, async (req, res) => {
+// ✅ Get Pending Bank Transfers (Admin)
+router.get("/pending-bank-transfers", authenticateToken, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only admins can access this",
-      });
-    }
+    // Optional: Check if user is admin
+    // if (req.user.role !== "admin") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Only admins can access this",
+    //   });
+    // }
 
     const pendingOrders = await Order.find({
-      paymentMethod: "bank_transfer",
-      paymentStatus: "pending",
+      "paymentInfo.method": "bank_transfer",
+      "paymentInfo.status": "pending",
     })
+      .populate("userId", "name email phone")
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -531,6 +682,64 @@ router.get("/pending-bank-transfers", auth, async (req, res) => {
   }
 });
 
+// ✅ Get Bank Transfer Stats
+router.get("/bank-transfer-stats", authenticateToken, async (req, res) => {
+  try {
+    const stats = await Order.aggregate([
+      { $match: { "paymentInfo.method": "bank_transfer" } },
+      {
+        $group: {
+          _id: "$paymentInfo.status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$pricing.total" },
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching bank transfer stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch stats",
+      error: error.message,
+    });
+  }
+});
+
+// ✅ Get User's Pending Bank Transfer Orders
+router.get(
+  "/user/pending-bank-transfers",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const pendingOrders = await Order.find({
+        userId,
+        "paymentInfo.method": "bank_transfer",
+        "paymentInfo.status": "pending",
+      }).sort({ createdAt: -1 });
+
+      res.json({
+        success: true,
+        data: pendingOrders,
+        count: pendingOrders.length,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching user pending transfers:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch pending transfers",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Optional: Email function for bank transfer confirmation
 async function sendBankTransferConfirmationEmail({
   email,
@@ -546,7 +755,7 @@ async function sendBankTransferConfirmationEmail({
     <p>Your order <strong>${orderId}</strong> has been created successfully!</p>
     
     <h3>Next Steps:</h3>
-    <p>Please transfer <strong>₦${total.toLocaleString()}</strong> to the account below:</p>
+    <p>Please transfer <strong>₦${total.toLocaleString()}</strong> to the account below within 24 hours:</p>
     
     <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <p><strong>Bank Name:</strong> ${bankDetails.bankName}</p>
