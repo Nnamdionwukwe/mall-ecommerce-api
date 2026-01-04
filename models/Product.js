@@ -61,73 +61,73 @@ productSchema.index({ name: "text", description: "text" });
 // INSTANCE METHODS
 // ================================================
 
-productSchema.methods.decreaseStock = async function (quantity) {
-  try {
-    console.log(`📦 [decreaseStock] Decreasing ${this.name} by ${quantity}`);
-    console.log(`   Current stock: ${this.stock}`);
+// productSchema.methods.decreaseStock = async function (quantity) {
+//   try {
+//     console.log(`📦 [decreaseStock] Decreasing ${this.name} by ${quantity}`);
+//     console.log(`   Current stock: ${this.stock}`);
 
-    if (this.stock < quantity) {
-      throw new Error(
-        `Insufficient stock for ${this.name}. Available: ${this.stock}, Requested: ${quantity}`
-      );
-    }
+//     if (this.stock < quantity) {
+//       throw new Error(
+//         `Insufficient stock for ${this.name}. Available: ${this.stock}, Requested: ${quantity}`
+//       );
+//     }
 
-    this.stock -= quantity;
-    console.log(`   New stock: ${this.stock}`);
+//     this.stock -= quantity;
+//     console.log(`   New stock: ${this.stock}`);
 
-    const saved = await this.save();
-    console.log(`✅ [decreaseStock] Saved successfully`);
-    return saved;
-  } catch (error) {
-    console.error(`❌ [decreaseStock] Error: ${error.message}`);
-    throw error;
-  }
-};
+//     const saved = await this.save();
+//     console.log(`✅ [decreaseStock] Saved successfully`);
+//     return saved;
+//   } catch (error) {
+//     console.error(`❌ [decreaseStock] Error: ${error.message}`);
+//     throw error;
+//   }
+// };
 
-productSchema.methods.increaseStock = async function (quantity) {
-  try {
-    console.log(`📦 [increaseStock] Increasing ${this.name} by ${quantity}`);
-    console.log(`   Current stock: ${this.stock}`);
+// productSchema.methods.increaseStock = async function (quantity) {
+//   try {
+//     console.log(`📦 [increaseStock] Increasing ${this.name} by ${quantity}`);
+//     console.log(`   Current stock: ${this.stock}`);
 
-    this.stock += quantity;
-    console.log(`   New stock: ${this.stock}`);
+//     this.stock += quantity;
+//     console.log(`   New stock: ${this.stock}`);
 
-    const saved = await this.save();
-    console.log(`✅ [increaseStock] Saved successfully`);
-    return saved;
-  } catch (error) {
-    console.error(`❌ [increaseStock] Error: ${error.message}`);
-    throw error;
-  }
-};
+//     const saved = await this.save();
+//     console.log(`✅ [increaseStock] Saved successfully`);
+//     return saved;
+//   } catch (error) {
+//     console.error(`❌ [increaseStock] Error: ${error.message}`);
+//     throw error;
+//   }
+// };
 
-productSchema.methods.isInStock = function (quantity = 1) {
-  const inStock = this.stock >= quantity;
-  console.log(
-    `🔍 [isInStock] ${this.name}: ${this.stock} >= ${quantity} = ${inStock}`
-  );
-  return inStock;
-};
+// productSchema.methods.isInStock = function (quantity = 1) {
+//   const inStock = this.stock >= quantity;
+//   console.log(
+//     `🔍 [isInStock] ${this.name}: ${this.stock} >= ${quantity} = ${inStock}`
+//   );
+//   return inStock;
+// };
 
-productSchema.methods.deactivate = async function () {
-  try {
-    this.isActive = false;
-    return await this.save();
-  } catch (error) {
-    console.error(`❌ [deactivate] Error: ${error.message}`);
-    throw error;
-  }
-};
+// productSchema.methods.deactivate = async function () {
+//   try {
+//     this.isActive = false;
+//     return await this.save();
+//   } catch (error) {
+//     console.error(`❌ [deactivate] Error: ${error.message}`);
+//     throw error;
+//   }
+// };
 
-productSchema.methods.activate = async function () {
-  try {
-    this.isActive = true;
-    return await this.save();
-  } catch (error) {
-    console.error(`❌ [activate] Error: ${error.message}`);
-    throw error;
-  }
-};
+// productSchema.methods.activate = async function () {
+//   try {
+//     this.isActive = true;
+//     return await this.save();
+//   } catch (error) {
+//     console.error(`❌ [activate] Error: ${error.message}`);
+//     throw error;
+//   }
+// };
 
 // ================================================
 // STATIC METHODS
