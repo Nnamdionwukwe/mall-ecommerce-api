@@ -443,7 +443,7 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
 });
 
 // ✅ FIXED: Create Bank Transfer Order
-router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
+router.post("/create-bank-transfer", auth, async (req, res) => {
   try {
     const {
       orderId,
