@@ -311,7 +311,7 @@ router.post("/verify-payment", auth, async (req, res) => {
 });
 
 // Create Bank Transfer Order
-router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
+router.post("/create-bank-transfer", auth, async (req, res) => {
   try {
     const {
       orderId,
@@ -445,7 +445,7 @@ router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
 // Verify Bank Transfer Payment (Optional - for admin to manually verify)
 router.post(
   "/verify-bank-transfer/:orderId",
-  authenticateToken,
+  auth,
   async (req, res) => {
     try {
       const { orderId } = req.params;
@@ -499,7 +499,7 @@ router.post(
 );
 
 // Get pending bank transfers (for admin dashboard)
-router.get("/pending-bank-transfers", authenticateToken, async (req, res) => {
+router.get("/pending-bank-transfers", auth, async (req, res) => {
   try {
     // Check if user is admin
     if (req.user.role !== "admin") {
