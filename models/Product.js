@@ -159,6 +159,90 @@ productSchema.statics.findByPriceRange = function (minPrice, maxPrice) {
 };
 
 // ================================================
+// INSTANCE METHODS - FIXED
+// ================================================
+
+productSchema.methods.decreaseStock = async function (quantity) {
+  try {
+    console.log(`📦 [decreaseStock] Decreasing ${this.name} by ${quantity}`);
+    console.log(`   Current stock: ${this.stock}`);
+
+    if (this.stock < quantity) {
+      throw new Error(
+        `Insufficient stock for ${this.name}. Available: ${this.stock}, Requested: ${quantity}`
+      );
+    }
+
+    // ✅ FIXED: Use updateOne instead of this.save()
+    const result = await mongoose
+      .model("Product")
+      .updateOne(
+        { _id: this._id },
+        { $inc: { stock: -quantity }, updatedAt: new Date() }
+      );
+
+    console.log(`   New stock: ${this.stock - quantity}`);
+    console.log(`✅ [decreaseStock] Updated successfully`);
+    return result;
+  } catch (error) {
+    console.error(`❌ [decreaseStock] Error: ${error.message}`);
+    throw error;
+  }
+};
+
+productSchema.methods.increaseStock = async function (quantity) {
+  try {
+    console.log(`📦 [increaseStock] Increasing ${this.name} by ${quantity}`);
+    console.log(`   Current stock: ${this.stock}`);
+
+    // ✅ FIXED: Use updateOne instead of this.save()
+    const result = await mongoose
+      .model("Product")
+      .updateOne(
+        { _id: this._id },
+        { $inc: { stock: quantity }, updatedAt: new Date() }
+      );
+
+    console.log(`   New stock: ${this.stock + quantity}`);
+    console.log(`✅ [increaseStock] Updated successfully`);
+    return result;
+  } catch (error) {
+    console.error(`❌ [increaseStock] Error: ${error.message}`);
+    throw error;
+  }
+};
+
+productSchema.methods.isInStock = function (quantity = 1) {
+  const inStock = this.stock >= quantity;
+  console.log(
+    `🔍 [isInStock] ${this.name}: ${this.stock} >= ${quantity} = ${inStock}`
+  );
+  return inStock;
+};
+
+productSchema.methods.deactivate = async function () {
+  try {
+    return await mongoose
+      .model("Product")
+      .updateOne({ _id: this._id }, { isActive: false, updatedAt: new Date() });
+  } catch (error) {
+    console.error(`❌ [deactivate] Error: ${error.message}`);
+    throw error;
+  }
+};
+
+productSchema.methods.activate = async function () {
+  try {
+    return await mongoose
+      .model("Product")
+      .updateOne({ _id: this._id }, { isActive: true, updatedAt: new Date() });
+  } catch (error) {
+    console.error(`❌ [activate] Error: ${error.message}`);
+    throw error;
+  }
+};
+
+// ================================================
 // CREATE MODEL
 // ================================================
 
