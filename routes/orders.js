@@ -582,74 +582,70 @@ router.post("/create-bank-transfer", authenticateToken, async (req, res) => {
 });
 
 // ✅ FIXED: Verify Bank Transfer Payment
-router.post(
-  "/verify-bank-transfer/:orderId",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { orderId } = req.params;
-      const { transactionId, amountReceived, bankStatementProof } = req.body;
+router.post("/verify-bank-transfer/:orderId", auth, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { transactionId, amountReceived, bankStatementProof } = req.body;
 
-      // Validate admin role (optional - add if you have role-based auth)
-      // if (req.user.role !== "admin") {
-      //   return res.status(403).json({
-      //     success: false,
-      //     message: "Only admins can verify payments",
-      //   });
-      // }
+    // Validate admin role (optional - add if you have role-based auth)
+    // if (req.user.role !== "admin") {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Only admins can verify payments",
+    //   });
+    // }
 
-      // Find order by orderId field
-      const order = await Order.findOne({ orderId });
-      if (!order) {
-        return res.status(404).json({
-          success: false,
-          message: "Order not found",
-        });
-      }
-
-      // Verify amount matches
-      if (amountReceived < order.pricing.total) {
-        return res.status(400).json({
-          success: false,
-          message: `Amount received (₦${amountReceived}) is less than required (₦${order.pricing.total})`,
-        });
-      }
-
-      // Update order with verified payment info
-      order.paymentInfo.status = "paid";
-      order.paymentInfo.paidAt = new Date();
-      order.paymentInfo.bankTransfer.amountReceived = amountReceived;
-      order.paymentInfo.bankTransfer.verifiedBy = req.user.id;
-      order.paymentInfo.bankTransfer.verifiedAt = new Date();
-      if (bankStatementProof) {
-        order.paymentInfo.bankTransfer.bankStatementProof = bankStatementProof;
-      }
-
-      // Update order status to processing
-      order.status = "processing";
-
-      await order.save();
-
-      console.log("✅ Bank transfer verified for order:", orderId);
-
-      res.json({
-        success: true,
-        message: "Payment verified successfully",
-        data: order,
-      });
-    } catch (error) {
-      console.error("❌ Error verifying bank transfer:", error);
-      res.status(500).json({
+    // Find order by orderId field
+    const order = await Order.findOne({ orderId });
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: "Failed to verify payment",
-        error: error.message,
+        message: "Order not found",
       });
     }
+
+    // Verify amount matches
+    if (amountReceived < order.pricing.total) {
+      return res.status(400).json({
+        success: false,
+        message: `Amount received (₦${amountReceived}) is less than required (₦${order.pricing.total})`,
+      });
+    }
+
+    // Update order with verified payment info
+    order.paymentInfo.status = "paid";
+    order.paymentInfo.paidAt = new Date();
+    order.paymentInfo.bankTransfer.amountReceived = amountReceived;
+    order.paymentInfo.bankTransfer.verifiedBy = req.user.id;
+    order.paymentInfo.bankTransfer.verifiedAt = new Date();
+    if (bankStatementProof) {
+      order.paymentInfo.bankTransfer.bankStatementProof = bankStatementProof;
+    }
+
+    // Update order status to processing
+    order.status = "processing";
+
+    await order.save();
+
+    console.log("✅ Bank transfer verified for order:", orderId);
+
+    res.json({
+      success: true,
+      message: "Payment verified successfully",
+      data: order,
+    });
+  } catch (error) {
+    console.error("❌ Error verifying bank transfer:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify payment",
+      error: error.message,
+    });
   }
-);
+});
 
 // ✅ Get Pending Bank Transfers (Admin)
-router.get("/pending-bank-transfers", authenticateToken, async (req, res) => {
+router.get("/pending-bank-transfers", auth, async (req, res) => {
   try {
     // Optional: Check if user is admin
     // if (req.user.role !== "admin") {
@@ -683,7 +679,7 @@ router.get("/pending-bank-transfers", authenticateToken, async (req, res) => {
 });
 
 // ✅ Get Bank Transfer Stats
-router.get("/bank-transfer-stats", authenticateToken, async (req, res) => {
+router.get("/bank-transfer-stats", auth, async (req, res) => {
   try {
     const stats = await Order.aggregate([
       { $match: { "paymentInfo.method": "bank_transfer" } },
@@ -711,34 +707,30 @@ router.get("/bank-transfer-stats", authenticateToken, async (req, res) => {
 });
 
 // ✅ Get User's Pending Bank Transfer Orders
-router.get(
-  "/user/pending-bank-transfers",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const userId = req.user.id;
+router.get("/user/pending-bank-transfers", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-      const pendingOrders = await Order.find({
-        userId,
-        "paymentInfo.method": "bank_transfer",
-        "paymentInfo.status": "pending",
-      }).sort({ createdAt: -1 });
+    const pendingOrders = await Order.find({
+      userId,
+      "paymentInfo.method": "bank_transfer",
+      "paymentInfo.status": "pending",
+    }).sort({ createdAt: -1 });
 
-      res.json({
-        success: true,
-        data: pendingOrders,
-        count: pendingOrders.length,
-      });
-    } catch (error) {
-      console.error("❌ Error fetching user pending transfers:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to fetch pending transfers",
-        error: error.message,
-      });
-    }
+    res.json({
+      success: true,
+      data: pendingOrders,
+      count: pendingOrders.length,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching user pending transfers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch pending transfers",
+      error: error.message,
+    });
   }
-);
+});
 
 // Optional: Email function for bank transfer confirmation
 async function sendBankTransferConfirmationEmail({
