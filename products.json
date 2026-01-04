@@ -1,76 +1,838 @@
 [
   {
-    "name": "Diclofenac injection zixa 75mg",
-    "description": "Non-steroidal anti-inflammatory drug (NSAID) injection for pain and inflammation relief. Effective for acute pain management, post-operative care, and inflammatory conditions. For intramuscular use only.",
-    "price": 200,
+    "name": "Raw Classic Natural Unrefined Rol",
+    "description": "High-quality, natural unrefined rolling papers made from vegan plant fibers, designed for a smooth, slow-burning experience.",
+    "price": 3000,
     "stock": 100,
-    "category": "Pharmacy",
-    "vendorId": "001",
-    "vendorName": "Ochacho Pharmacy",
-    "images": ["https://megacare.ng/media/image/2_oLFV6lp.png"],
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": ["https://m.media-amazon.com/images/I/51rUpoIzuzL.jpg"],
     "isActive": true,
     "createdAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
+      "$date": "2026-01-03T12:43:00.000Z"
     },
     "updatedAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
-    }
+      "$date": "2026-01-03T12:43:00.000Z"
+    },
+    "__v": 0
   },
   {
-    "name": "Kincef ceftriaxone for injection 1mg",
-    "description": "Broad-spectrum cephalosporin antibiotic injection for treating bacterial infections. Effective against respiratory tract infections, urinary tract infections, and skin infections. For IM/IV administration.",
-    "price": 2000,
+    "name": "Backwoods Sweet Aromatic (1 Cigars)",
+    "description": "A rustic, all-natural leaf cigar featuring a smooth and sweet aromatic profile, perfectly aged for a mellow smoking session.",
+    "price": 3700,
     "stock": 100,
-    "category": "Pharmacy",
-    "vendorId": "001",
-    "vendorName": "Ochacho Pharmacy",
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
     "images": [
-      "https://vastoversdrugsandalliedproducts.com/wp-content/uploads/2024/08/PhotoRoom-20240907_075637_11.png"
+      "https://d3koznjjgilbyx.cloudfront.net/lowesfoods/product_images/0007161030192.jpg"
     ],
     "isActive": true,
     "createdAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
+      "$date": "2026-01-03T12:43:00.000Z"
     },
     "updatedAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
-    }
+      "$date": "2026-01-03T12:43:00.000Z"
+    },
+    "__v": 0
   },
   {
-    "name": "Sterile water for injection",
-    "description": "",
-    "price": 150,
+    "name": "Backwoods Honey (1 Cigar)",
+    "description": "Crafted from 100% natural tobacco leaf, this single cigar is infused with the warm, sweet flavor of golden honey.",
+    "price": 3800,
     "stock": 100,
-    "category": "Pharmacy",
-    "vendorId": "001",
-    "vendorName": "Ochacho Pharmacy",
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
     "images": [
-      "https://www.pfizerhospitalus.com/sites/default/files/child/images/Drug-0409-4887-20-Sterile-Water-for-Injection-USP%5B1%5D.jpg"
+      "https://cigarchief.com/wp-content/uploads/2021/03/backwoods-honey.jpg"
     ],
     "isActive": true,
     "createdAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
+      "$date": "2026-01-03T12:43:00.000Z"
     },
     "updatedAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
-    }
+      "$date": "2026-01-03T12:43:00.000Z"
+    },
+    "__v": 0
   },
   {
-    "name": "Sterile water for injection",
-    "description": "",
-    "price": 150,
+    "name": "Backwoods Banana (5 Cigar)",
+    "description": "A sought-after limited edition pack of five cigars featuring the rare and tropical essence of ripe banana infused into all-natural tobacco leaves.",
+    "price": 15500,
     "stock": 100,
-    "category": "Pharmacy",
-    "vendorId": "001",
-    "vendorName": "Ochacho Pharmacy",
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
     "images": [
-      "https://www.pfizerhospitalus.com/sites/default/files/child/images/Drug-0409-4887-20-Sterile-Water-for-Injection-USP%5B1%5D.jpg"
+      "https://goodvibe.ch/wp-content/uploads/2022/11/backwoods-banana.webp"
     ],
     "isActive": true,
     "createdAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
+      "$date": "2026-01-03T12:44:00.000Z"
     },
     "updatedAt": {
-      "$date": "2025-01-01T00:00:00.000Z"
-    }
+      "$date": "2026-01-03T12:44:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Backwoods (Honey Bourbon) (1 Cigar)",
+    "description": "A rich and flavorful single cigar that combines the sweet notes of honey with the smooth, oaky finish of premium bourbon.",
+    "price": 3800,
+    "stock": 100,
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://www.momscigars.com/cdn/shop/files/backwoods-honeybourbon-1pk-straight-rgb_1024x1024.jpg?v=1686259277"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:44:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:44:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Backwoods Plastic Crusher",
+    "description": "A lightweight and portable two-piece plastic herb grinder featuring sharp teeth and the iconic Backwoods branding for quick and efficient processing.",
+    "price": 1600,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0NCO2XIxzip6-Stjuxmk12Q1ANZxmriotoQ&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:44:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:44:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Character Iron Crusher",
+    "description": "A heavy-duty metal herb grinder featuring high-quality zinc alloy construction and unique character-themed artwork for both durability and style.",
+    "price": 10500,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/47/5769021/2.jpg?5399"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Bad Berry 8000 Puffs",
+    "description": "A high-capacity rechargeable disposable vape inspired by 6ix9ine, featuring a bold mixed berry flavor profile and a smart LED screen for juice and battery monitoring.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-aKDHysrSFnzBMRsGnckZN3Un83B17MpBTg&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Stoopid Strawberry 8000 Puffs",
+    "description": "Experience intense flavor with this 8000-puff disposable device, delivering a sweet and vibrant strawberry taste combined with advanced Quaq mesh coil technology.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://www.huffvape.com/cdn/shop/files/stoopid-strawberry.png?v=1703831656"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:45:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Twisted Tangy 8000 Puffs",
+    "description": "A high-performance disposable vape featuring a zesty and sharp citrus twist, offering up to 8000 puffs with a digital display for real-time tracking.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPZlh3MU938VU8F3_oI45rSv7b8DRE-0FD2A&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Backwood Black Russian 1 Cigars",
+    "description": "A sophisticated single cigar wrapped in a dark, natural leaf, offering a unique blend of coffee and vodka cream flavors for a smooth, aromatic finish.",
+    "price": 3800,
+    "stock": 100,
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://reyvape.com/wp-content/uploads/2021/10/BACKWOODS-BLACK-RUSSIAN-CIGAR.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "100 Quick Lightning Charcoal",
+    "description": "Premium self-lighting charcoal discs designed for rapid ignition and consistent heat, ideal for incense or hookah use.",
+    "price": 4400,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://www.goodfellascigarshop.com/cdn/shop/products/threekingsgroupimage_1200x1200.jpg?v=1618010775"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:46:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Wacky Watermelon 8000 Puffs",
+    "description": "A vibrant and juicy watermelon-flavored disposable vape featuring 8000 puffs, a rechargeable battery, and an integrated LED display for monitoring levels.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRURvrZN-tFC1inRn3otnetkSVvhTc3H0chRA&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Redd Dummy 8000 Puffs",
+    "description": "A signature bold cherry and mixed red fruit blend inspired by 6ix9ine, delivering a powerful flavor profile with long-lasting performance.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://ohmcityvapes.com/cdn/shop/files/dummy-vapes_redd_dummy-disposable-vape-device_5dec38da-bb0b-4fb4-8761-0b26b31d46ea_1024x1024@2x.png?v=1686236182"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Gooba Grape 8000 Puffs",
+    "description": "Indulge in a rich and sweet purple grape flavor with this premium 8000-puff device, featuring advanced mesh coil technology for smooth vapor production.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRT4nn-Lkc5Mw4TkNQEYgw8rPKLUri8qRmOdg&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:47:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Rainbow Rapper 8000 Puffs",
+    "description": "A vibrant candy-inspired blend featuring a spectrum of fruit flavors, providing a nostalgic and sweet vaping experience with up to 8000 puffs.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLtv2Swu1BZ67HG-ymOAonGbsv3ISQq3wVpQ&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Dummy Dream 8000 Puffs",
+    "description": "A creamy and smooth flavor profile that delivers a dreamy, dessert-like sensation with every puff, featuring a smart display and rechargeable battery.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://ohmcityvapes.com/cdn/shop/files/dummy-vapes_stoopid_strawberry-disposable-vape-device_2048x.png?v=1692799368"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Alien Invasion 8000 Puffs",
+    "description": "An out-of-this-world mix of bold berries and exotic fruits, engineered with mesh coil technology for consistent flavor throughout its 8000-puff lifespan.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://ohmcityvapes.com/cdn/shop/files/dummy-vapes_alien_invasion-disposable-vape-device_500x.png?v=1686235631"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Metal Grinder",
+    "description": "A heavy-duty, multi-chamber precision grinder crafted from high-grade aircraft aluminum with diamond-cut teeth for effortless shredding and a magnetic lid for security.",
+    "price": 11400,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": ["https://m.media-amazon.com/images/I/61YdNW8QhLL.jpg"],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Classic Raw Black",
+    "description": "Double-pressed, extra-fine rolling papers designed for the highest level of thinness. These unrefined papers provide an exceptionally clean taste and a slow, even burn.",
+    "price": 1200,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://thejuicyjoint.co.uk/cdn/shop/products/rawblack.jpg?v=1675185009"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Organic Hemp Raw Classic Rolling Paper",
+    "description": "Eco-friendly rolling papers made from sustainably sourced organic hemp. These unbleached, chlorine-free papers offer a smooth smoke with a natural hemp gumline.",
+    "price": 1300,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTfwTn3xgOBGne7skLO3aFLUzwnerzwNnqfcw&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:48:50.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Dummy Vapes Lush Ice 8000 Puffs",
+    "description": "A refreshing and cool watermelon menthol blend that provides a crisp vaping experience, featuring 8000 puffs and a smart LED screen to monitor battery and juice levels.",
+    "price": 20800,
+    "stock": 100,
+    "category": "Vapes",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://cdn11.bigcommerce.com/s-gq4icuzl7/images/stencil/1280x1280/products/4262/5185/dummy-vapes-8000-puffs-disposable-vape-3-pack-4_turbo_1024x1024__16425.1692269265.png?c=2"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Edge Black",
+    "description": "A premium mini-slim cigarette offering a bold and refined tobacco flavor in a compact, sleek design for a modern and sophisticated smoking experience.",
+    "price": 1050,
+    "stock": 100,
+    "category": "Tobacco",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://blackhorsetobacco.com.ng/wp-content/uploads/2025/01/Esse-Edge-Black-Mini-Slim-Cigarette-removebg-preview.png"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Chesterfield",
+    "description": "A world-renowned heritage brand known for its distinctive blend of high-quality Turkish and Virginia tobaccos, delivering a smooth and timeless taste.",
+    "price": 2500,
+    "stock": 100,
+    "category": "Tobacco",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://i0.wp.com/vapegoro.com/wp-content/uploads/2024/05/1000734009.jpg?fit=600%2C600&ssl=1"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:50:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Bohem",
+    "description": "Bohem Cigar Grip Queen Size offers a unique hybrid experience, combining the richness of high-quality cigar leaf with the convenience of a modern cigarette format.",
+    "price": 1110,
+    "stock": 100,
+    "category": "Tobacco",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://blackhorsetobacco.com.ng/wp-content/uploads/2025/01/Bohem-Grip-Queen-Size-Cigar-Cigarette-1.png"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Shisha Tips",
+    "description": "Individually wrapped, hygienic disposable plastic mouth tips designed to fit most shisha hoses for a clean and shared hookah smoking session.",
+    "price": 2600,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://m.media-amazon.com/images/I/51Yp1kLcfQL._AC_UF1000,1000_QL80_.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Aluminium Foil",
+    "description": "Heavy-duty aluminum foil specifically designed for heat management on hookah bowls, ensuring even charcoal burning and protected tobacco.",
+    "price": 720,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://i5.walmartimages.com/asr/23e7f37b-5e34-40dd-ae96-0c7e284443fb.dbf187cabfc11bfa632d9bb28c45af20.jpeg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:51:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Premium Quick Lighting Charcoal",
+    "description": "High-quality, fast-igniting charcoal tablets designed for efficient heat output and a low ash content, perfect for shisha and incense burning.",
+    "price": 4100,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://shishahub.co.za/wp-content/uploads/2022/06/FAKIC001-4.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Kings Charcoal",
+    "description": "Renowned for quality, Three Kings charcoal briquettes offer a consistent, long burn time and produce minimal smoke and odor, making them a top choice for traditional use.",
+    "price": 7000,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://cdn11.bigcommerce.com/s-4c6eg5d3xf/products/14751/images/19487/57099-three-kings-charcoal__03916.1681248128.386.513.jpg?c=1"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Smoking Kits",
+    "description": "A comprehensive smoking kit that includes essential accessories, curated for convenience and portability, allowing users to enjoy their products wherever they go.",
+    "price": 28600,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://reyvape.com/wp-content/uploads/2021/06/week-complete-bag.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:52:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Iron Crusher M/S",
+    "description": "A medium-sized heavy-duty zinc alloy herb grinder designed for durability, featuring sharp diamond-cut teeth for a consistent grind and a textured grip for ease of use.",
+    "price": 6500,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://primemarsstore.com/storage/media/KvGFXYiR8UAJbWjoREiQOpme1bINXb8xcOmv5Tgl.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Big Iron Crusher",
+    "description": "An oversized premium metal grinder built for larger volumes. This multi-chamber tool includes a pollen scraper and a magnetic lid to ensure a secure and efficient grinding process.",
+    "price": 7800,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://primemarsstore.com/storage/media/KvGFXYiR8UAJbWjoREiQOpme1bINXb8xcOmv5Tgl.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Max Rich",
+    "description": "A luxury tobacco blend offering a deep, robust flavor profile. Packaged for freshness, this product is designed for connoisseurs seeking a rich and sophisticated smoking experience.",
+    "price": 19500,
+    "stock": 100,
+    "category": "Tobacco",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://cdn11.bigcommerce.com/s-2ooutu2zpl/images/stencil/2048x2048/products/39162/42157/MAX-01-103M__41970.1509508545.jpg?c=2"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:54:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Pro Rich",
+    "description": "A premium selection of high-quality cigars offering a professional-grade rich flavor and a smooth, consistent burn for enthusiasts.",
+    "price": 19500,
+    "stock": 100,
+    "category": "Cigars",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://cdn11.bigcommerce.com/s-3om7ob/images/stencil/1280x1280/products/9530/32569/Alec-Bradley-MAXX-Culture---5-Pack-with-Slanted-One__64553.1717515494.jpg?c=3&imbypass=on"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "King Song",
+    "description": "An exquisite tobacco blend presented in a classic box, designed to deliver a majestic and flavorful smoking experience.",
+    "price": 19500,
+    "stock": 100,
+    "category": "Tobacco",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://lmcigars.com/wp-content/uploads/2023/01/Caldwell-The-Heater-Open-Box-324x324.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Honeypuff Organic Wraps Blueberry",
+    "description": "Natural organic rolling wraps infused with a sweet blueberry flavor, providing a clean and fruity taste for a slow-burning session.",
+    "price": 1000,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQh2Xu4dO0XQ3aozLXhMdk6_F9u81w6RVr1Ow&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:56:10.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Honeypuff Organic Wraps Strawberry",
+    "description": "Eco-friendly organic rolling wraps infused with a sweet strawberry essence, crafted for a slow, even burn and a natural smoking experience.",
+    "price": 1000,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRS3csMBPw9f_eGA_GMUu1gVfpSj6y2DlqKVg&s"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Shisha Box Big Size",
+    "description": "A premium, large-capacity shisha set featuring a durable aluminum frame and high-quality glass, designed for an enhanced smoke volume and stability.",
+    "price": 35100,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://shishasklep.pl/hpeciai/00be6670a345faa98ce83d4b0abc400f/eng_pl_Shisha-Jookah-Aluriium-NR-03-Big-Size-Black-Red-26344_1.webp"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Shisha Charcoal",
+    "description": "High-density natural coconut shell charcoal cubes that provide long-lasting heat with minimal ash and no chemical odors for a pure shisha taste.",
+    "price": 4100,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://hookahmarket.com/files/images/ecommerce/products/shisha-charcoal-cocodalya-64-pcs-1kg.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:57:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Hookah Fancy Shisha",
+    "description": "A luxury large-size fancy hookah featuring a multi-hose design for social sessions. Crafted with premium materials for a smooth and sophisticated smoking experience.",
+    "price": 117000,
+    "stock": 100,
+    "category": "Smoking Accessories",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://image.made-in-china.com/2f0j00WbHVdGAsyZfO/Large-Size-Fancy-Wholesale-Tobacco-Shisha-Hookah-with-4-Hoses.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Alostoura Watermelon Flavor",
+    "description": "Premium shisha molasses infused with a vibrant and refreshing watermelon flavor, providing a sweet and aromatic vapor cloud.",
+    "price": 1120,
+    "stock": 100,
+    "category": "Shisha Flavors",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://res.cloudinary.com/dqaha42be/image/upload/v1699631896/njuwoe77rkf1idsssfve.jpg"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "__v": 0
+  },
+  {
+    "name": "Alostoura Mix Fruits Flavor",
+    "description": "A delightful blend of tropical and garden fruit essences in a high-quality shisha molasses base for a diverse and flavorful smoking experience.",
+    "price": 1120,
+    "stock": 100,
+    "category": "Shisha Flavors",
+    "vendorId": "6",
+    "vendorName": "Ochacho Supermarket",
+    "images": [
+      "https://alostoura-tobacco.com/public/storage/products/June2023/zZQxYSOHWdjevwMgVi2F.png"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-03T12:58:00.000Z"
+    },
+    "__v": 0
   }
 ]
