@@ -2,8 +2,16 @@ const express = require("express");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
 const axios = require("axios");
+
+// ✅ IMPORT EMAIL SERVICE
+const {
+  sendOrderConfirmationEmail,
+  sendBankTransferConfirmationEmail,
+  sendBankTransferVerificationEmail,
+} = require("../services/emailService");
 
 const router = express.Router();
 
@@ -209,18 +217,9 @@ router.post("/verify-payment", auth, async (req, res) => {
     );
 
     // ✅ Validate shipping info
-    const { fullName, email, phone, address, city, state, zipCode } =
-      shippingInfo;
+    const { fullName, email, phone, address, city, state } = shippingInfo;
 
-    if (
-      !fullName ||
-      !email ||
-      !phone ||
-      !address ||
-      !city ||
-      !state ||
-      !zipCode
-    ) {
+    if (!fullName || !email || !phone || !address || !city || !state) {
       return res.status(400).json({
         success: false,
         message: "Incomplete shipping information",
@@ -241,7 +240,7 @@ router.post("/verify-payment", auth, async (req, res) => {
         address,
         city,
         state,
-        zipCode,
+        zipCode: shippingInfo.zipCode || "",
       },
       orderNote: orderNote || "",
       pricing: {
@@ -262,6 +261,25 @@ router.post("/verify-payment", auth, async (req, res) => {
 
     await order.save();
     console.log(`✅ Order created: ${order._id}`);
+
+    // ✅ SEND PAYSTACK ORDER CONFIRMATION EMAIL
+    try {
+      await sendOrderConfirmationEmail({
+        email: shippingInfo.email,
+        fullName: shippingInfo.fullName,
+        orderId: order.orderId,
+        total: order.pricing.total,
+        items: orderItems,
+        shippingInfo: order.shippingInfo,
+      });
+      console.log("✅ Confirmation email sent");
+    } catch (emailError) {
+      console.error(
+        "⚠️ Email failed but order was created:",
+        emailError.message
+      );
+      // Don't fail the order if email fails
+    }
 
     // ✅ Clear cart
     console.log("🗑️ Clearing cart...");
@@ -323,7 +341,7 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
       total,
       orderNote,
     } = req.body;
-    const userId = req.user.id; // From auth middleware
+    const userId = req.user.id;
 
     // Validation
     if (!orderId || !shippingInfo || !items || !total) {
@@ -354,9 +372,9 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
       });
     }
 
-    // ✅ FIXED: Don't use orderId as _id, use MongoDB's default _id
+    // Create order
     const order = new Order({
-      orderId, // Use orderId field instead of _id
+      orderId,
       userId,
       items: items.map((item) => ({
         productId: item._id,
@@ -380,18 +398,10 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
         tax,
         total,
       },
-      // ✅ FIXED: Add paymentInfo with required fields
       paymentInfo: {
         method: "bank_transfer",
-        reference: orderId, // Use orderId as reference
+        reference: orderId,
         status: "pending",
-        bankTransfer: {
-          bankName: "Monie Point",
-          accountName:
-            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
-          accountNumber: "5165004578",
-          amountExpected: total,
-        },
       },
       status: "pending_payment",
       orderNote: orderNote || "",
@@ -403,25 +413,31 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
       orderId,
       userId,
       total,
-      paymentStatus: "pending",
     });
 
-    // Send confirmation email (optional)
+    // ✅ SEND BANK TRANSFER CONFIRMATION EMAIL
     try {
       await sendBankTransferConfirmationEmail({
         email: shippingInfo.email,
         fullName: shippingInfo.fullName,
         orderId,
         total,
+        items: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        shippingInfo,
         bankDetails: {
           bankName: "Monie Point",
           accountName:
-            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+            "Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
           accountNumber: "5165004578",
         },
       });
+      console.log("✅ Bank transfer confirmation email sent");
     } catch (emailError) {
-      console.error("Error sending confirmation email:", emailError);
+      console.error("⚠️ Email failed:", emailError.message);
       // Don't fail the order if email fails
     }
 
@@ -436,7 +452,7 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
         bankDetails: {
           bankName: "Monie Point",
           accountName:
-            " Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+            "Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
           accountNumber: "5165004578",
         },
         order,
@@ -458,14 +474,6 @@ router.post("/verify-bank-transfer/:orderId", auth, async (req, res) => {
     const { orderId } = req.params;
     const { transactionId, amountReceived, bankStatementProof } = req.body;
 
-    // Validate admin role (optional - add if you have role-based auth)
-    // if (req.user.role !== "admin") {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Only admins can verify payments",
-    //   });
-    // }
-
     // Find order by orderId field
     const order = await Order.findOne({ orderId });
     if (!order) {
@@ -486,19 +494,27 @@ router.post("/verify-bank-transfer/:orderId", auth, async (req, res) => {
     // Update order with verified payment info
     order.paymentInfo.status = "paid";
     order.paymentInfo.paidAt = new Date();
-    order.paymentInfo.bankTransfer.amountReceived = amountReceived;
-    order.paymentInfo.bankTransfer.verifiedBy = req.user.id;
-    order.paymentInfo.bankTransfer.verifiedAt = new Date();
-    if (bankStatementProof) {
-      order.paymentInfo.bankTransfer.bankStatementProof = bankStatementProof;
-    }
-
-    // Update order status to processing
+    order.paymentInfo.transactionId = transactionId;
     order.status = "processing";
 
     await order.save();
 
     console.log("✅ Bank transfer verified for order:", orderId);
+
+    // ✅ SEND VERIFICATION EMAIL
+    try {
+      await sendBankTransferVerificationEmail({
+        email: order.shippingInfo.email,
+        fullName: order.shippingInfo.fullName,
+        orderId: order.orderId,
+        total: order.pricing.total,
+        verifiedAmount: amountReceived,
+        verifiedAt: new Date(),
+      });
+      console.log("✅ Verification email sent");
+    } catch (emailError) {
+      console.error("⚠️ Verification email failed:", emailError.message);
+    }
 
     res.json({
       success: true,
@@ -518,14 +534,6 @@ router.post("/verify-bank-transfer/:orderId", auth, async (req, res) => {
 // ✅ Get Pending Bank Transfers (Admin)
 router.get("/pending-bank-transfers", auth, async (req, res) => {
   try {
-    // Optional: Check if user is admin
-    // if (req.user.role !== "admin") {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: "Only admins can access this",
-    //   });
-    // }
-
     const pendingOrders = await Order.find({
       "paymentInfo.method": "bank_transfer",
       "paymentInfo.status": "pending",
@@ -602,42 +610,6 @@ router.get("/user/pending-bank-transfers", auth, async (req, res) => {
     });
   }
 });
-
-// Optional: Email function for bank transfer confirmation
-async function sendBankTransferConfirmationEmail({
-  email,
-  fullName,
-  orderId,
-  total,
-  bankDetails,
-}) {
-  // Using nodemailer or your email service
-  const emailTemplate = `
-    <h2>Order Confirmation - Bank Transfer Required</h2>
-    <p>Hi ${fullName},</p>
-    <p>Your order <strong>${orderId}</strong> has been created successfully!</p>
-    
-    <h3>Next Steps:</h3>
-    <p>Please transfer <strong>₦${total.toLocaleString()}</strong> to the account below within 24 hours:</p>
-    
-    <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-      <p><strong>Bank Name:</strong> ${bankDetails.bankName}</p>
-      <p><strong>Account Name:</strong> ${bankDetails.accountName}</p>
-      <p><strong>Account Number:</strong> ${bankDetails.accountNumber}</p>
-      <p><strong>Reference:</strong> ${orderId}</p>
-    </div>
-    
-    <p>Your order will be confirmed within 2-4 hours of payment verification.</p>
-    <p>Thank you for shopping with us!</p>
-  `;
-
-  // Example using nodemailer
-  // await transporter.sendMail({
-  //   to: email,
-  //   subject: `Order Confirmation - ${orderId}`,
-  //   html: emailTemplate,
-  // });
-}
 
 // ================================================
 // ADMIN ROUTES (Must come BEFORE dynamic :orderId routes)
