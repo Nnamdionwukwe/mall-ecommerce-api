@@ -173,7 +173,7 @@ resend.emails
       console.error("\n💡 Troubleshooting:");
       console.error("   - Verify your 'from' email domain in Resend");
       console.error("   - Go to: https://resend.com/domains");
-      console.error("   - Add and verify your domain");
+      //   console.error("   - Add and verify your domain");
     }
 
     console.error("\n");
