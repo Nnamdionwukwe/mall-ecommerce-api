@@ -396,6 +396,11 @@ async function sendBankTransferConfirmationEmail({
     .map(
       (item) => `
     <div class="order-item">
+      ${
+        item.image
+          ? `<img src="${item.image}" alt="${item.name}" class="item-image">`
+          : ""
+      }
       <div class="item-details">
         <div class="item-name">${item.name}</div>
         <div class="item-price">Qty: ${
@@ -472,7 +477,7 @@ async function sendBankTransferConfirmationEmail({
           "en-NG"
         )}) to the account above</li>
         <li><strong>Use "${orderId}" as the transfer reference</strong></li>
-        <li>Your payment will be <strong>verified within 2-4 hours</strong></li>
+        <li>Your payment will be <strong>verified within 15-30 minutes</strong></li>
         <li>You'll receive a confirmation email once verified</li>
         <li>Your order will be processed and shipped</li>
       </ol>
@@ -551,7 +556,7 @@ async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
       </ul>
       
       <div class="warning-box" style="background: #d1fae5; border-color: #10b981;">
-        <strong>📦 Estimated Processing Time:</strong> Your order will be prepared and shipped within 1-2 business days.
+        <strong>📦 Estimated Processing Time:</strong> Your order will be prepared and shipped within 5-10 minutes.
       </div>
       
       <p style="margin-top: 30px;">Thank you for your patience and for shopping with ${
