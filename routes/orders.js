@@ -25,7 +25,7 @@ console.log("✅ Orders routes loading...\n");
 const getPaystackKey = () => {
   const key = process.env.PAYSTACK_SECRET_KEY;
   if (!key) {
-    throw new Error("PAYSTACK_SECRET_KEY not configured");
+    throw new Error("sk_test_e5156bb252ddf122917f791b3e5e240ab93d90f5");
   }
   return key;
 };
