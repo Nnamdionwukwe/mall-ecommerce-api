@@ -6,12 +6,13 @@ const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
 const axios = require("axios");
 
-// ✅ IMPORT EMAIL SERVICE
+// ✅ Import email functions
 const {
-  sendOrderConfirmationEmail,
   sendBankTransferConfirmationEmail,
-  sendBankTransferVerificationEmail,
-} = require("../services/emailService");
+  sendPaymentVerifiedEmail,
+  sendOrderShippedEmail,
+  sendOrderConfirmationEmail,
+} = require("../utils/email");
 
 const router = express.Router();
 
@@ -262,24 +263,18 @@ router.post("/verify-payment", auth, async (req, res) => {
     await order.save();
     console.log(`✅ Order created: ${order._id}`);
 
-    // ✅ SEND PAYSTACK ORDER CONFIRMATION EMAIL
-    try {
-      await sendOrderConfirmationEmail({
-        email: shippingInfo.email,
-        fullName: shippingInfo.fullName,
-        orderId: order.orderId,
-        total: order.pricing.total,
-        items: orderItems,
-        shippingInfo: order.shippingInfo,
-      });
-      console.log("✅ Confirmation email sent");
-    } catch (emailError) {
-      console.error(
-        "⚠️ Email failed but order was created:",
-        emailError.message
-      );
-      // Don't fail the order if email fails
-    }
+    // ✅ SEND PAYSTACK ORDER CONFIRMATION EMAIL (Non-blocking)
+    sendOrderConfirmationEmail({
+      email: shippingInfo.email,
+      fullName: shippingInfo.fullName,
+      orderId: order.orderId,
+      total: order.pricing.total,
+      items: orderItems,
+      shippingInfo: order.shippingInfo,
+      paymentMethod: "Paystack (Card Payment)",
+    }).catch((error) => {
+      console.error("⚠️ Email failed (non-critical):", error.message);
+    });
 
     // ✅ Clear cart
     console.log("🗑️ Clearing cart...");
@@ -328,7 +323,7 @@ router.post("/verify-payment", auth, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Create Bank Transfer Order
+// POST /create-bank-transfer - Create Bank Transfer Order
 router.post("/create-bank-transfer", auth, async (req, res) => {
   try {
     const {
@@ -342,6 +337,10 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
       orderNote,
     } = req.body;
     const userId = req.user.id;
+
+    console.log(
+      `\n💰 [create-bank-transfer] User: ${userId}, Total: ₦${total}`
+    );
 
     // Validation
     if (!orderId || !shippingInfo || !items || !total) {
@@ -408,38 +407,29 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
     });
 
     await order.save();
+    console.log("✅ Bank transfer order created:", orderId);
 
-    console.log("✅ Bank transfer order created:", {
+    // ✅ SEND BANK TRANSFER CONFIRMATION EMAIL (Non-blocking)
+    sendBankTransferConfirmationEmail({
+      email: shippingInfo.email,
+      fullName: shippingInfo.fullName,
       orderId,
-      userId,
       total,
+      items: items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      shippingInfo,
+      bankDetails: {
+        bankName: "Monie Point",
+        accountName:
+          "Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
+        accountNumber: "5165004578",
+      },
+    }).catch((error) => {
+      console.error("⚠️ Email failed (non-critical):", error.message);
     });
-
-    // ✅ SEND BANK TRANSFER CONFIRMATION EMAIL
-    try {
-      await sendBankTransferConfirmationEmail({
-        email: shippingInfo.email,
-        fullName: shippingInfo.fullName,
-        orderId,
-        total,
-        items: items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        shippingInfo,
-        bankDetails: {
-          bankName: "Monie Point",
-          accountName:
-            "Providence Courts Integrated Services Nigeria Limited - SuperMarket 2",
-          accountNumber: "5165004578",
-        },
-      });
-      console.log("✅ Bank transfer confirmation email sent");
-    } catch (emailError) {
-      console.error("⚠️ Email failed:", emailError.message);
-      // Don't fail the order if email fails
-    }
 
     res.status(201).json({
       success: true,
@@ -468,71 +458,75 @@ router.post("/create-bank-transfer", auth, async (req, res) => {
   }
 });
 
-// ✅ FIXED: Verify Bank Transfer Payment
-router.post("/verify-bank-transfer/:orderId", auth, async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { transactionId, amountReceived, bankStatementProof } = req.body;
-
-    // Find order by orderId field
-    const order = await Order.findOne({ orderId });
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    // Verify amount matches
-    if (amountReceived < order.pricing.total) {
-      return res.status(400).json({
-        success: false,
-        message: `Amount received (₦${amountReceived}) is less than required (₦${order.pricing.total})`,
-      });
-    }
-
-    // Update order with verified payment info
-    order.paymentInfo.status = "paid";
-    order.paymentInfo.paidAt = new Date();
-    order.paymentInfo.transactionId = transactionId;
-    order.status = "processing";
-
-    await order.save();
-
-    console.log("✅ Bank transfer verified for order:", orderId);
-
-    // ✅ SEND VERIFICATION EMAIL
+// POST /verify-bank-transfer/:orderId - Verify Bank Transfer Payment (Admin)
+router.post(
+  "/verify-bank-transfer/:orderId",
+  auth,
+  isAdmin,
+  async (req, res) => {
     try {
-      await sendBankTransferVerificationEmail({
+      const { orderId } = req.params;
+      const { transactionId, amountReceived, bankStatementProof } = req.body;
+
+      console.log(`\n🔍 [verify-bank-transfer] Order: ${orderId}`);
+
+      // Find order by orderId field
+      const order = await Order.findOne({ orderId });
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
+
+      // Verify amount matches
+      if (amountReceived < order.pricing.total) {
+        return res.status(400).json({
+          success: false,
+          message: `Amount received (₦${amountReceived}) is less than required (₦${order.pricing.total})`,
+        });
+      }
+
+      // Update order with verified payment info
+      order.paymentInfo.status = "paid";
+      order.paymentInfo.paidAt = new Date();
+      order.paymentInfo.transactionId = transactionId;
+      order.status = "processing";
+
+      await order.save();
+      console.log("✅ Bank transfer verified for order:", orderId);
+
+      // ✅ SEND PAYMENT VERIFICATION EMAIL (Non-blocking)
+      sendPaymentVerifiedEmail({
         email: order.shippingInfo.email,
         fullName: order.shippingInfo.fullName,
         orderId: order.orderId,
         total: order.pricing.total,
-        verifiedAmount: amountReceived,
-        verifiedAt: new Date(),
+      }).catch((error) => {
+        console.error(
+          "⚠️ Verification email failed (non-critical):",
+          error.message
+        );
       });
-      console.log("✅ Verification email sent");
-    } catch (emailError) {
-      console.error("⚠️ Verification email failed:", emailError.message);
+
+      res.json({
+        success: true,
+        message: "Payment verified successfully",
+        data: order,
+      });
+    } catch (error) {
+      console.error("❌ Error verifying bank transfer:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to verify payment",
+        error: error.message,
+      });
     }
-
-    res.json({
-      success: true,
-      message: "Payment verified successfully",
-      data: order,
-    });
-  } catch (error) {
-    console.error("❌ Error verifying bank transfer:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to verify payment",
-      error: error.message,
-    });
   }
-});
+);
 
-// ✅ Get Pending Bank Transfers (Admin)
-router.get("/pending-bank-transfers", auth, async (req, res) => {
+// GET /pending-bank-transfers - Get Pending Bank Transfers (Admin)
+router.get("/pending-bank-transfers", auth, isAdmin, async (req, res) => {
   try {
     const pendingOrders = await Order.find({
       "paymentInfo.method": "bank_transfer",
@@ -557,8 +551,8 @@ router.get("/pending-bank-transfers", auth, async (req, res) => {
   }
 });
 
-// ✅ Get Bank Transfer Stats
-router.get("/bank-transfer-stats", auth, async (req, res) => {
+// GET /bank-transfer-stats - Get Bank Transfer Stats (Admin)
+router.get("/bank-transfer-stats", auth, isAdmin, async (req, res) => {
   try {
     const stats = await Order.aggregate([
       { $match: { "paymentInfo.method": "bank_transfer" } },
@@ -585,7 +579,7 @@ router.get("/bank-transfer-stats", auth, async (req, res) => {
   }
 });
 
-// ✅ Get User's Pending Bank Transfer Orders
+// GET /user/pending-bank-transfers - Get User's Pending Bank Transfer Orders
 router.get("/user/pending-bank-transfers", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -739,6 +733,22 @@ router.patch("/admin/:orderId/delivery", auth, isAdmin, async (req, res) => {
     }
 
     console.log("✅ Delivery info updated successfully");
+
+    // ✅ SEND SHIPPING EMAIL IF TRACKING NUMBER PROVIDED (Non-blocking)
+    if (trackingNumber && order.status === "shipped") {
+      sendOrderShippedEmail({
+        email: order.shippingInfo.email,
+        fullName: order.shippingInfo.fullName,
+        orderId: order.orderId,
+        trackingNumber,
+        estimatedDelivery,
+      }).catch((error) => {
+        console.error(
+          "⚠️ Shipping email failed (non-critical):",
+          error.message
+        );
+      });
+    }
 
     res.json({
       success: true,
