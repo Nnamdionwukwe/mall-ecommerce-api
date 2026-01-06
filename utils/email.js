@@ -1,15 +1,42 @@
 const { Resend } = require("resend");
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ================================================
+// LAZY INITIALIZATION - Resend Client
+// ================================================
+let resendClient = null;
 
-// Constants
+/**
+ * Get or create Resend client instance (lazy initialization)
+ * This ensures the client is only created when needed, after env vars are loaded
+ */
+function getResendClient() {
+  if (!resendClient) {
+    const apiKey = process.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      console.warn("⚠️  RESEND_API_KEY not found - email service disabled");
+      return null;
+    }
+
+    resendClient = new Resend(apiKey);
+    console.log("✅ Resend email client initialized");
+  }
+
+  return resendClient;
+}
+
+// ================================================
+// CONSTANTS
+// ================================================
 const STORE_NAME = process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket";
 const STORE_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 const STORE_SUPPORT_EMAIL =
   process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com";
 const STORE_PHONE = process.env.STORE_PHONE || "+234-903-382-2884";
 
+// ================================================
+// EMAIL TEMPLATE WRAPPER
+// ================================================
 /**
  * Base email template wrapper
  */
@@ -169,6 +196,10 @@ function emailTemplate(content, headerColor = "#667eea") {
   `;
 }
 
+// ================================================
+// EMAIL FUNCTIONS
+// ================================================
+
 /**
  * Send order confirmation email (Paystack/Card payment)
  */
@@ -181,8 +212,12 @@ async function sendOrderConfirmationEmail({
   shippingInfo,
   paymentMethod = "Card Payment",
 }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(
+      "⚠️  Email service not configured, skipping order confirmation email"
+    );
     return { success: false, message: "Email service not configured" };
   }
 
@@ -311,8 +346,12 @@ async function sendBankTransferConfirmationEmail({
   shippingInfo,
   bankDetails,
 }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(
+      "⚠️  Email service not configured, skipping bank transfer email"
+    );
     return { success: false, message: "Email service not configured" };
   }
 
@@ -431,8 +470,12 @@ async function sendBankTransferConfirmationEmail({
  * Send payment verification confirmation email
  */
 async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(
+      "⚠️  Email service not configured, skipping payment verification email"
+    );
     return { success: false, message: "Email service not configured" };
   }
 
@@ -505,8 +548,10 @@ async function sendOrderShippedEmail({
   trackingNumber,
   estimatedDelivery,
 }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log("⚠️  Email service not configured, skipping shipping email");
     return { success: false, message: "Email service not configured" };
   }
 
@@ -583,8 +628,10 @@ async function sendOrderShippedEmail({
  * Send order delivered confirmation
  */
 async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log("⚠️  Email service not configured, skipping delivery email");
     return { success: false, message: "Email service not configured" };
   }
 
@@ -642,8 +689,12 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
  * Send order cancelled notification
  */
 async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("⚠️  Resend API key not configured, skipping email");
+  // ✅ Get Resend client
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(
+      "⚠️  Email service not configured, skipping cancellation email"
+    );
     return { success: false, message: "Email service not configured" };
   }
 
@@ -698,6 +749,9 @@ async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
   }
 }
 
+// ================================================
+// EXPORTS
+// ================================================
 module.exports = {
   sendOrderConfirmationEmail,
   sendBankTransferConfirmationEmail,
