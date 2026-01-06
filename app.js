@@ -1,4 +1,47 @@
-require("dotenv").config();
+// ================================================
+// CRITICAL: Load environment variables FIRST
+// ================================================
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+// ✅ Debug: Verify environment variables loaded
+console.log("\n========================================");
+console.log("🔍 ENVIRONMENT VARIABLES CHECK");
+console.log("========================================");
+console.log("Working Directory:", process.cwd());
+console.log("Script Directory:", __dirname);
+console.log(".env Path:", path.join(__dirname, ".env"));
+console.log("\n📋 Environment Variables Status:");
+console.log("   PORT:", process.env.PORT || "❌ NOT FOUND");
+console.log("   NODE_ENV:", process.env.NODE_ENV || "❌ NOT FOUND");
+console.log(
+  "   JWT_SECRET:",
+  process.env.JWT_SECRET ? "✅ LOADED" : "❌ NOT FOUND"
+);
+console.log(
+  "   MONGODB_URI:",
+  process.env.MONGODB_URI ? "✅ LOADED" : "❌ NOT FOUND"
+);
+console.log(
+  "   PAYSTACK_SECRET_KEY:",
+  process.env.PAYSTACK_SECRET_KEY ? "✅ LOADED" : "❌ NOT FOUND"
+);
+console.log(
+  "   RESEND_API_KEY:",
+  process.env.RESEND_API_KEY ? "✅ LOADED" : "❌ NOT FOUND"
+);
+if (process.env.RESEND_API_KEY) {
+  console.log("   RESEND_API_KEY length:", process.env.RESEND_API_KEY.length);
+  console.log(
+    "   RESEND_API_KEY preview:",
+    process.env.RESEND_API_KEY.substring(0, 15) + "..."
+  );
+}
+console.log("========================================\n");
+
+// ================================================
+// NOW LOAD OTHER MODULES
+// ================================================
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -188,6 +231,11 @@ app.get("/api/health", (req, res) => {
     message: "Server is running",
     timestamp: new Date().toISOString(),
     socketIO: "enabled",
+    environment: {
+      hasResendKey: !!process.env.RESEND_API_KEY,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasMongoUri: !!process.env.MONGODB_URI,
+    },
   });
 });
 
@@ -366,5 +414,10 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`🏥 Health: http://localhost:${PORT}/api/health`);
   console.log(`📋 Routes: http://localhost:${PORT}/api/routes`);
   console.log(`💬 Socket.IO: ENABLED`);
+  console.log(
+    `📧 Email Service: ${
+      process.env.RESEND_API_KEY ? "✅ ENABLED" : "⚠️  DISABLED"
+    }`
+  );
   console.log("========================================\n");
 });
