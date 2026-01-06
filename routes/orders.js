@@ -6,6 +6,13 @@ const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
 const axios = require("axios");
 
+// 🔥 FORCE SET RESEND API KEY
+if (!process.env.RESEND_API_KEY) {
+  console.warn("⚠️  [orders.js] RESEND_API_KEY not found, setting it manually");
+  process.env.RESEND_API_KEY = "re_bTfoC4Xs_7oYsAM31UHFbX7AsSgPnLDAg";
+  process.env.RESEND_FROM_EMAIL = "onboarding@resend.dev";
+}
+
 // ✅ Import email functions
 const {
   sendOrderConfirmationEmail,
@@ -27,7 +34,7 @@ console.log("✅ Orders routes loading...\n");
 const getPaystackKey = () => {
   const key = process.env.PAYSTACK_SECRET_KEY;
   if (!key) {
-    throw new Error("PAYSTACK_SECRET_KEY not configured");
+    throw new Error("sk_test_e5156bb252ddf122917f791b3e5e240ab93d90f5");
   }
   return key;
 };
@@ -684,22 +691,6 @@ router.patch("/admin/:orderId/status", auth, isAdmin, async (req, res) => {
       });
     }
 
-    console.log(`✅ Order status updated to: ${status}`);
-
-    // ✅ SEND EMAIL BASED ON STATUS CHANGE (Non-blocking)
-    if (status === "delivered") {
-      sendOrderDeliveredEmail({
-        email: order.shippingInfo.email,
-        fullName: order.shippingInfo.fullName,
-        orderId: order.orderId,
-      }).catch((error) => {
-        console.error(
-          "⚠️ Delivery email failed (non-critical):",
-          error.message
-        );
-      });
-    }
-
     res.json({
       success: true,
       message: "Order status updated",
@@ -753,13 +744,7 @@ router.patch("/admin/:orderId/delivery", auth, isAdmin, async (req, res) => {
     console.log("✅ Delivery info updated successfully");
 
     // ✅ SEND SHIPPING EMAIL IF TRACKING NUMBER PROVIDED (Non-blocking)
-    if (trackingNumber) {
-      // Also update status to shipped if not already
-      if (order.status !== "shipped" && order.status !== "delivered") {
-        order.status = "shipped";
-        await order.save();
-      }
-
+    if (trackingNumber && order.status === "shipped") {
       sendOrderShippedEmail({
         email: order.shippingInfo.email,
         fullName: order.shippingInfo.fullName,
@@ -961,19 +946,6 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     await order.save();
 
     console.log("✅ Order cancelled");
-
-    // ✅ SEND CANCELLATION EMAIL (Non-blocking)
-    sendOrderCancelledEmail({
-      email: order.shippingInfo.email,
-      fullName: order.shippingInfo.fullName,
-      orderId: order.orderId,
-      reason: order.cancellationReason,
-    }).catch((error) => {
-      console.error(
-        "⚠️ Cancellation email failed (non-critical):",
-        error.message
-      );
-    });
 
     res.json({
       success: true,
