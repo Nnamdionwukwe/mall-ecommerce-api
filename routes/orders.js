@@ -6,6 +6,13 @@ const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
 const axios = require("axios");
 
+// 🔥 FORCE SET RESEND API KEY
+if (!process.env.RESEND_API_KEY) {
+  console.warn("⚠️  [orders.js] RESEND_API_KEY not found, setting it manually");
+  process.env.RESEND_API_KEY = "re_bTfoC4Xs_7oYsAM31UHFbX7AsSgPnLDAg";
+  process.env.RESEND_FROM_EMAIL = "onboarding@resend.dev";
+}
+
 // ✅ Import email functions
 const {
   sendBankTransferConfirmationEmail,

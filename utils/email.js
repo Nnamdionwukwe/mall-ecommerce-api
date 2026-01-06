@@ -7,26 +7,35 @@ let resendClient = null;
 
 /**
  * Get or create Resend client instance (lazy initialization)
+ * IMPORTANT: Always read from process.env at runtime, never cache
  */
 function getResendClient() {
+  // ALWAYS re-check process.env - don't trust cached values
+  const apiKey = process.env.RESEND_API_KEY;
+
+  // Debug logging
+  console.log("\n🔍 [getResendClient] Checking environment...");
+  console.log("   process.env keys:", Object.keys(process.env).length);
+  console.log("   RESEND_API_KEY exists:", !!apiKey);
+
+  if (apiKey) {
+    console.log("   API Key length:", apiKey.length);
+    console.log("   API Key preview:", apiKey.substring(0, 15) + "...");
+  } else {
+    console.log("   Checking all env keys with RESEND:");
+    const resendKeys = Object.keys(process.env).filter((k) =>
+      k.includes("RESEND")
+    );
+    console.log("   Found:", resendKeys.length > 0 ? resendKeys : "NONE");
+  }
+
+  if (!apiKey) {
+    console.warn("⚠️  RESEND_API_KEY not found - email service disabled");
+    return null;
+  }
+
+  // Create new client if needed
   if (!resendClient) {
-    const apiKey = process.env.RESEND_API_KEY;
-
-    // Debug logging
-    console.log("\n🔍 Attempting to initialize Resend client...");
-    console.log("   API Key exists:", !!apiKey);
-    console.log("   API Key length:", apiKey?.length || 0);
-    console.log("   API Key preview:", apiKey?.substring(0, 10) || "NONE");
-
-    if (!apiKey) {
-      console.warn("⚠️  RESEND_API_KEY not found - email service disabled");
-      console.warn(
-        "   Available env vars:",
-        Object.keys(process.env).filter((k) => k.includes("RESEND"))
-      );
-      return null;
-    }
-
     try {
       resendClient = new Resend(apiKey);
       console.log("✅ Resend email client initialized successfully\n");
@@ -39,16 +48,19 @@ function getResendClient() {
   return resendClient;
 }
 
-// ================================================
-// CONSTANTS
-// ================================================
-const getStoreConfig = () => ({
-  STORE_NAME: process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket",
-  STORE_EMAIL: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
-  STORE_SUPPORT_EMAIL:
-    process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com",
-  STORE_PHONE: process.env.STORE_PHONE || "+234-903-382-2884",
-});
+/**
+ * Get store configuration from environment variables
+ * Always read fresh from process.env
+ */
+function getStoreConfig() {
+  return {
+    STORE_NAME: process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket",
+    STORE_EMAIL: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+    STORE_SUPPORT_EMAIL:
+      process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com",
+    STORE_PHONE: process.env.STORE_PHONE || "+234-903-382-2884",
+  };
+}
 
 // ================================================
 // EMAIL TEMPLATE WRAPPER
@@ -219,9 +231,6 @@ function emailTemplate(content, headerColor = "#667eea") {
 // EMAIL FUNCTIONS
 // ================================================
 
-/**
- * Send order confirmation email (Paystack/Card payment)
- */
 async function sendOrderConfirmationEmail({
   email,
   fullName,
@@ -360,9 +369,6 @@ async function sendOrderConfirmationEmail({
   }
 }
 
-/**
- * Send bank transfer confirmation email with payment instructions
- */
 async function sendBankTransferConfirmationEmail({
   email,
   fullName,
@@ -497,9 +503,6 @@ async function sendBankTransferConfirmationEmail({
   }
 }
 
-/**
- * Send payment verification confirmation email
- */
 async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
   console.log(
     `\n📧 [sendPaymentVerifiedEmail] Attempting to send to: ${email}`
@@ -576,9 +579,6 @@ async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
   }
 }
 
-/**
- * Send order shipped notification with tracking
- */
 async function sendOrderShippedEmail({
   email,
   fullName,
@@ -667,9 +667,6 @@ async function sendOrderShippedEmail({
   }
 }
 
-/**
- * Send order delivered confirmation
- */
 async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
   console.log(`\n📧 [sendOrderDeliveredEmail] Attempting to send to: ${email}`);
 
@@ -731,9 +728,6 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
   }
 }
 
-/**
- * Send order cancelled notification
- */
 async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
   console.log(`\n📧 [sendOrderCancelledEmail] Attempting to send to: ${email}`);
 
@@ -798,9 +792,6 @@ async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
   }
 }
 
-// ================================================
-// EXPORTS
-// ================================================
 module.exports = {
   sendOrderConfirmationEmail,
   sendBankTransferConfirmationEmail,
