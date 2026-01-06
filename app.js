@@ -1,10 +1,10 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-require("dotenv").config();
 
 const app = express();
 const server = http.createServer(app);
