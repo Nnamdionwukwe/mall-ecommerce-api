@@ -7,19 +7,33 @@ let resendClient = null;
 
 /**
  * Get or create Resend client instance (lazy initialization)
- * This ensures the client is only created when needed, after env vars are loaded
  */
 function getResendClient() {
   if (!resendClient) {
     const apiKey = process.env.RESEND_API_KEY;
 
+    // Debug logging
+    console.log("\n🔍 Attempting to initialize Resend client...");
+    console.log("   API Key exists:", !!apiKey);
+    console.log("   API Key length:", apiKey?.length || 0);
+    console.log("   API Key preview:", apiKey?.substring(0, 10) || "NONE");
+
     if (!apiKey) {
       console.warn("⚠️  RESEND_API_KEY not found - email service disabled");
+      console.warn(
+        "   Available env vars:",
+        Object.keys(process.env).filter((k) => k.includes("RESEND"))
+      );
       return null;
     }
 
-    resendClient = new Resend(apiKey);
-    console.log("✅ Resend email client initialized");
+    try {
+      resendClient = new Resend(apiKey);
+      console.log("✅ Resend email client initialized successfully\n");
+    } catch (error) {
+      console.error("❌ Failed to initialize Resend:", error.message);
+      return null;
+    }
   }
 
   return resendClient;
@@ -28,19 +42,20 @@ function getResendClient() {
 // ================================================
 // CONSTANTS
 // ================================================
-const STORE_NAME = process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket";
-const STORE_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-const STORE_SUPPORT_EMAIL =
-  process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com";
-const STORE_PHONE = process.env.STORE_PHONE || "+234-903-382-2884";
+const getStoreConfig = () => ({
+  STORE_NAME: process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket",
+  STORE_EMAIL: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+  STORE_SUPPORT_EMAIL:
+    process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com",
+  STORE_PHONE: process.env.STORE_PHONE || "+234-903-382-2884",
+});
 
 // ================================================
 // EMAIL TEMPLATE WRAPPER
 // ================================================
-/**
- * Base email template wrapper
- */
 function emailTemplate(content, headerColor = "#667eea") {
+  const config = getStoreConfig();
+
   return `
     <!DOCTYPE html>
     <html>
@@ -185,10 +200,14 @@ function emailTemplate(content, headerColor = "#667eea") {
       <div class="email-container">
         ${content}
         <div class="footer">
-          <p><strong>${STORE_NAME}</strong></p>
-          <p>Email: ${STORE_SUPPORT_EMAIL} | Phone: ${STORE_PHONE}</p>
+          <p><strong>${config.STORE_NAME}</strong></p>
+          <p>Email: ${config.STORE_SUPPORT_EMAIL} | Phone: ${
+    config.STORE_PHONE
+  }</p>
           <p style="margin: 5px 0; font-size: 12px;">This is an automated email. Please do not reply directly.</p>
-          <p style="margin: 5px 0;">© ${new Date().getFullYear()} ${STORE_NAME}. All rights reserved.</p>
+          <p style="margin: 5px 0;">© ${new Date().getFullYear()} ${
+    config.STORE_NAME
+  }. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -212,7 +231,10 @@ async function sendOrderConfirmationEmail({
   shippingInfo,
   paymentMethod = "Card Payment",
 }) {
-  // ✅ Get Resend client
+  console.log(
+    `\n📧 [sendOrderConfirmationEmail] Attempting to send to: ${email}`
+  );
+
   const resend = getResendClient();
   if (!resend) {
     console.log(
@@ -220,6 +242,8 @@ async function sendOrderConfirmationEmail({
     );
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const itemsHtml = items
     .map(
@@ -314,13 +338,15 @@ async function sendOrderConfirmationEmail({
         <li>💬 Contact us anytime for questions</li>
       </ul>
       
-      <p style="margin-top: 30px;">Thank you for shopping with ${STORE_NAME}!</p>
+      <p style="margin-top: 30px;">Thank you for shopping with ${
+        config.STORE_NAME
+      }!</p>
     </div>
   `;
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `✅ Order Confirmed - ${orderId}`,
       html: emailTemplate(content, "#667eea"),
@@ -346,7 +372,10 @@ async function sendBankTransferConfirmationEmail({
   shippingInfo,
   bankDetails,
 }) {
-  // ✅ Get Resend client
+  console.log(
+    `\n📧 [sendBankTransferConfirmationEmail] Attempting to send to: ${email}`
+  );
+
   const resend = getResendClient();
   if (!resend) {
     console.log(
@@ -354,6 +383,8 @@ async function sendBankTransferConfirmationEmail({
     );
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const itemsHtml = items
     .map(
@@ -446,13 +477,13 @@ async function sendBankTransferConfirmationEmail({
       
       <p style="margin-top: 30px;">If you have any questions or need assistance, please reply to this email or contact our support team.</p>
       
-      <p>Thank you for shopping with ${STORE_NAME}!</p>
+      <p>Thank you for shopping with ${config.STORE_NAME}!</p>
     </div>
   `;
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `Payment Required - Order ${orderId}`,
       html: emailTemplate(content, "#667eea"),
@@ -470,7 +501,10 @@ async function sendBankTransferConfirmationEmail({
  * Send payment verification confirmation email
  */
 async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
-  // ✅ Get Resend client
+  console.log(
+    `\n📧 [sendPaymentVerifiedEmail] Attempting to send to: ${email}`
+  );
+
   const resend = getResendClient();
   if (!resend) {
     console.log(
@@ -478,6 +512,8 @@ async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
     );
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const content = `
     <div class="header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
@@ -515,13 +551,15 @@ async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
         <strong>📦 Estimated Processing Time:</strong> Your order will be prepared and shipped within 1-2 business days.
       </div>
       
-      <p style="margin-top: 30px;">Thank you for your patience and for shopping with ${STORE_NAME}!</p>
+      <p style="margin-top: 30px;">Thank you for your patience and for shopping with ${
+        config.STORE_NAME
+      }!</p>
     </div>
   `;
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `✅ Payment Confirmed - Order ${orderId}`,
       html: emailTemplate(content, "#10b981"),
@@ -548,12 +586,15 @@ async function sendOrderShippedEmail({
   trackingNumber,
   estimatedDelivery,
 }) {
-  // ✅ Get Resend client
+  console.log(`\n📧 [sendOrderShippedEmail] Attempting to send to: ${email}`);
+
   const resend = getResendClient();
   if (!resend) {
     console.log("⚠️  Email service not configured, skipping shipping email");
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const deliveryDate = estimatedDelivery
     ? new Date(estimatedDelivery).toLocaleDateString("en-US", {
@@ -600,17 +641,19 @@ async function sendOrderShippedEmail({
       <div class="info-box">
         <h4 style="margin-top: 0; color: #3b82f6;">Need Help?</h4>
         <p>If you have any questions about your delivery or need to make changes to your delivery address, please contact us immediately.</p>
-        <p><strong>Email:</strong> ${STORE_SUPPORT_EMAIL}</p>
-        <p><strong>Phone:</strong> ${STORE_PHONE}</p>
+        <p><strong>Email:</strong> ${config.STORE_SUPPORT_EMAIL}</p>
+        <p><strong>Phone:</strong> ${config.STORE_PHONE}</p>
       </div>
       
-      <p style="margin-top: 30px;">Thank you for shopping with ${STORE_NAME}. We hope you love your order!</p>
+      <p style="margin-top: 30px;">Thank you for shopping with ${
+        config.STORE_NAME
+      }. We hope you love your order!</p>
     </div>
   `;
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `🚚 Order ${orderId} Has Shipped - Track Your Package`,
       html: emailTemplate(content, "#3b82f6"),
@@ -628,12 +671,15 @@ async function sendOrderShippedEmail({
  * Send order delivered confirmation
  */
 async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
-  // ✅ Get Resend client
+  console.log(`\n📧 [sendOrderDeliveredEmail] Attempting to send to: ${email}`);
+
   const resend = getResendClient();
   if (!resend) {
     console.log("⚠️  Email service not configured, skipping delivery email");
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const content = `
     <div class="header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
@@ -661,17 +707,17 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
       <h3 style="color: #10b981;">Need Support?</h3>
       <p>If you have any issues with your order, please don't hesitate to contact us:</p>
       <ul>
-        <li>📧 Email: ${STORE_SUPPORT_EMAIL}</li>
-        <li>📱 Phone: ${STORE_PHONE}</li>
+        <li>📧 Email: ${config.STORE_SUPPORT_EMAIL}</li>
+        <li>📱 Phone: ${config.STORE_PHONE}</li>
       </ul>
       
-      <p style="margin-top: 30px;">Thank you for choosing ${STORE_NAME}. We look forward to serving you again!</p>
+      <p style="margin-top: 30px;">Thank you for choosing ${config.STORE_NAME}. We look forward to serving you again!</p>
     </div>
   `;
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `🎉 Order ${orderId} Delivered - Rate Your Experience`,
       html: emailTemplate(content, "#10b981"),
@@ -689,7 +735,8 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
  * Send order cancelled notification
  */
 async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
-  // ✅ Get Resend client
+  console.log(`\n📧 [sendOrderCancelledEmail] Attempting to send to: ${email}`);
+
   const resend = getResendClient();
   if (!resend) {
     console.log(
@@ -697,6 +744,8 @@ async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
     );
     return { success: false, message: "Email service not configured" };
   }
+
+  const config = getStoreConfig();
 
   const content = `
     <div class="header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
@@ -735,7 +784,7 @@ async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
 
   try {
     const data = await resend.emails.send({
-      from: STORE_EMAIL,
+      from: config.STORE_EMAIL,
       to: email,
       subject: `Order ${orderId} Cancelled`,
       html: emailTemplate(content, "#ef4444"),
