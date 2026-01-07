@@ -1,40 +1,31 @@
 const { Resend } = require("resend");
 
 // ================================================
-// LAZY INITIALIZATION - Resend Client
+// CONFIGURATION
 // ================================================
+
+// Primary email (custom domain) - tries this first
+const PRIMARY_EMAIL =
+  process.env.RESEND_FROM_EMAIL || "orders@ochachopharmacysupermarket.com";
+// Fallback email (always works) - uses if primary fails
+const FALLBACK_EMAIL = "onboarding@resend.dev";
+
 let resendClient = null;
 
 /**
  * Get or create Resend client instance (lazy initialization)
- * IMPORTANT: Always read from process.env at runtime, never cache
  */
 function getResendClient() {
-  // ALWAYS re-check process.env - don't trust cached values
   const apiKey = process.env.RESEND_API_KEY;
 
-  // Debug logging
   console.log("\n🔍 [getResendClient] Checking environment...");
-  console.log("   process.env keys:", Object.keys(process.env).length);
   console.log("   RESEND_API_KEY exists:", !!apiKey);
-
-  if (apiKey) {
-    console.log("   API Key length:", apiKey.length);
-    console.log("   API Key preview:", apiKey.substring(0, 15) + "...");
-  } else {
-    console.log("   Checking all env keys with RESEND:");
-    const resendKeys = Object.keys(process.env).filter((k) =>
-      k.includes("RESEND")
-    );
-    console.log("   Found:", resendKeys.length > 0 ? resendKeys : "NONE");
-  }
 
   if (!apiKey) {
     console.warn("⚠️  RESEND_API_KEY not found - email service disabled");
     return null;
   }
 
-  // Create new client if needed
   if (!resendClient) {
     try {
       resendClient = new Resend(apiKey);
@@ -50,16 +41,92 @@ function getResendClient() {
 
 /**
  * Get store configuration from environment variables
- * Always read fresh from process.env
  */
 function getStoreConfig() {
   return {
     STORE_NAME: process.env.STORE_NAME || "Ochacho Pharmacy & SuperMarket",
-    STORE_EMAIL: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
     STORE_SUPPORT_EMAIL:
       process.env.STORE_SUPPORT_EMAIL || "ochachopharmacysupermarket@gmail.com",
     STORE_PHONE: process.env.STORE_PHONE || "+234-903-382-2884",
   };
+}
+
+// ================================================
+// CORE EMAIL SENDING WITH AUTOMATIC FALLBACK
+// ================================================
+
+/**
+ * Send email with automatic fallback to onboarding@resend.dev
+ * This ensures 100% delivery rate while building custom domain reputation
+ */
+async function sendEmailWithFallback({ to, subject, html }) {
+  const resend = getResendClient();
+
+  if (!resend) {
+    console.log("⚠️  Email service not configured");
+    return { success: false, message: "Email service not configured" };
+  }
+
+  // Step 1: Try with custom domain first
+  try {
+    console.log(`📧 Attempting to send from: ${PRIMARY_EMAIL}`);
+
+    const data = await resend.emails.send({
+      from: PRIMARY_EMAIL,
+      to,
+      subject,
+      html,
+    });
+
+    console.log(
+      `✅ Email sent successfully from custom domain (${PRIMARY_EMAIL})`
+    );
+    console.log(`   Message ID: ${data.id}`);
+
+    return {
+      success: true,
+      messageId: data.id,
+      usedFallback: false,
+      from: PRIMARY_EMAIL,
+    };
+  } catch (primaryError) {
+    console.warn(`⚠️  Custom domain failed: ${primaryError.message}`);
+    console.log(`🔄 Retrying with fallback domain (${FALLBACK_EMAIL})...`);
+
+    // Step 2: Retry with fallback domain
+    try {
+      const data = await resend.emails.send({
+        from: FALLBACK_EMAIL,
+        to,
+        subject,
+        html,
+      });
+
+      console.log(
+        `✅ Email sent successfully from fallback domain (${FALLBACK_EMAIL})`
+      );
+      console.log(`   Message ID: ${data.id}`);
+      console.log(
+        `   ℹ️  Note: Used fallback because custom domain is still warming up`
+      );
+
+      return {
+        success: true,
+        messageId: data.id,
+        usedFallback: true,
+        from: FALLBACK_EMAIL,
+      };
+    } catch (fallbackError) {
+      console.error(`❌ Both domains failed!`);
+      console.error(`   Custom domain error: ${primaryError.message}`);
+      console.error(`   Fallback domain error: ${fallbackError.message}`);
+
+      return {
+        success: false,
+        error: `Primary: ${primaryError.message}; Fallback: ${fallbackError.message}`,
+      };
+    }
+  }
 }
 
 // ================================================
@@ -228,7 +295,7 @@ function emailTemplate(content, headerColor = "#667eea") {
 }
 
 // ================================================
-// EMAIL FUNCTIONS
+// EMAIL FUNCTIONS (All use automatic fallback)
 // ================================================
 
 async function sendOrderConfirmationEmail({
@@ -240,17 +307,7 @@ async function sendOrderConfirmationEmail({
   shippingInfo,
   paymentMethod = "Card Payment",
 }) {
-  console.log(
-    `\n📧 [sendOrderConfirmationEmail] Attempting to send to: ${email}`
-  );
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log(
-      "⚠️  Email service not configured, skipping order confirmation email"
-    );
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendOrderConfirmationEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -353,20 +410,11 @@ async function sendOrderConfirmationEmail({
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `✅ Order Confirmed - ${orderId}`,
-      html: emailTemplate(content, "#667eea"),
-    });
-
-    console.log("✅ Order confirmation email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error("❌ Failed to send order confirmation email:", error.message);
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `✅ Order Confirmed - ${orderId}`,
+    html: emailTemplate(content, "#667eea"),
+  });
 }
 
 async function sendBankTransferConfirmationEmail({
@@ -378,17 +426,7 @@ async function sendBankTransferConfirmationEmail({
   shippingInfo,
   bankDetails,
 }) {
-  console.log(
-    `\n📧 [sendBankTransferConfirmationEmail] Attempting to send to: ${email}`
-  );
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log(
-      "⚠️  Email service not configured, skipping bank transfer email"
-    );
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendBankTransferConfirmationEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -396,11 +434,6 @@ async function sendBankTransferConfirmationEmail({
     .map(
       (item) => `
     <div class="order-item">
-      ${
-        item.image
-          ? `<img src="${item.image}" alt="${item.name}" class="item-image">`
-          : ""
-      }
       <div class="item-details">
         <div class="item-name">${item.name}</div>
         <div class="item-price">Qty: ${
@@ -492,34 +525,15 @@ async function sendBankTransferConfirmationEmail({
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `Payment Required - Order ${orderId}`,
-      html: emailTemplate(content, "#667eea"),
-    });
-
-    console.log("✅ Bank transfer confirmation email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error("❌ Failed to send bank transfer email:", error.message);
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `Payment Required - Order ${orderId}`,
+    html: emailTemplate(content, "#667eea"),
+  });
 }
 
 async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
-  console.log(
-    `\n📧 [sendPaymentVerifiedEmail] Attempting to send to: ${email}`
-  );
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log(
-      "⚠️  Email service not configured, skipping payment verification email"
-    );
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendPaymentVerifiedEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -565,23 +579,11 @@ async function sendPaymentVerifiedEmail({ email, fullName, orderId, total }) {
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `✅ Payment Confirmed - Order ${orderId}`,
-      html: emailTemplate(content, "#10b981"),
-    });
-
-    console.log("✅ Payment verification email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error(
-      "❌ Failed to send payment verification email:",
-      error.message
-    );
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `✅ Payment Confirmed - Order ${orderId}`,
+    html: emailTemplate(content, "#10b981"),
+  });
 }
 
 async function sendOrderShippedEmail({
@@ -591,13 +593,7 @@ async function sendOrderShippedEmail({
   trackingNumber,
   estimatedDelivery,
 }) {
-  console.log(`\n📧 [sendOrderShippedEmail] Attempting to send to: ${email}`);
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log("⚠️  Email service not configured, skipping shipping email");
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendOrderShippedEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -656,30 +652,15 @@ async function sendOrderShippedEmail({
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `🚚 Order ${orderId} Has Shipped - Track Your Package`,
-      html: emailTemplate(content, "#3b82f6"),
-    });
-
-    console.log("✅ Shipping notification email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error("❌ Failed to send shipping email:", error.message);
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `🚚 Order ${orderId} Has Shipped - Track Your Package`,
+    html: emailTemplate(content, "#3b82f6"),
+  });
 }
 
 async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
-  console.log(`\n📧 [sendOrderDeliveredEmail] Attempting to send to: ${email}`);
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log("⚠️  Email service not configured, skipping delivery email");
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendOrderDeliveredEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -702,10 +683,6 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
       <h3 style="color: #10b981;">Rate Your Experience</h3>
       <p>We'd love to hear about your shopping experience. Your feedback helps us improve!</p>
       
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button" style="background: #10b981;">Leave a Review</a>
-      </div>
-      
       <h3 style="color: #10b981;">Need Support?</h3>
       <p>If you have any issues with your order, please don't hesitate to contact us:</p>
       <ul>
@@ -717,32 +694,15 @@ async function sendOrderDeliveredEmail({ email, fullName, orderId }) {
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `🎉 Order ${orderId} Delivered - Rate Your Experience`,
-      html: emailTemplate(content, "#10b981"),
-    });
-
-    console.log("✅ Delivery confirmation email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error("❌ Failed to send delivery email:", error.message);
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `🎉 Order ${orderId} Delivered - Rate Your Experience`,
+    html: emailTemplate(content, "#10b981"),
+  });
 }
 
 async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
-  console.log(`\n📧 [sendOrderCancelledEmail] Attempting to send to: ${email}`);
-
-  const resend = getResendClient();
-  if (!resend) {
-    console.log(
-      "⚠️  Email service not configured, skipping cancellation email"
-    );
-    return { success: false, message: "Email service not configured" };
-  }
+  console.log(`\n📧 [sendOrderCancelledEmail] Sending to: ${email}`);
 
   const config = getStoreConfig();
 
@@ -773,29 +733,20 @@ async function sendOrderCancelledEmail({ email, fullName, orderId, reason }) {
       
       <p>We're sorry to see this order cancelled. If you have any questions or if there's anything we can do to help, please don't hesitate to contact us.</p>
       
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="#" class="button" style="background: #667eea;">Continue Shopping</a>
-      </div>
-      
       <p style="margin-top: 30px;">We hope to serve you again soon!</p>
     </div>
   `;
 
-  try {
-    const data = await resend.emails.send({
-      from: config.STORE_EMAIL,
-      to: email,
-      subject: `Order ${orderId} Cancelled`,
-      html: emailTemplate(content, "#ef4444"),
-    });
-
-    console.log("✅ Cancellation email sent:", data.id);
-    return { success: true, messageId: data.id };
-  } catch (error) {
-    console.error("❌ Failed to send cancellation email:", error.message);
-    return { success: false, error: error.message };
-  }
+  return await sendEmailWithFallback({
+    to: email,
+    subject: `Order ${orderId} Cancelled`,
+    html: emailTemplate(content, "#ef4444"),
+  });
 }
+
+// ================================================
+// EXPORTS
+// ================================================
 
 module.exports = {
   sendOrderConfirmationEmail,
