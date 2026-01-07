@@ -10,7 +10,7 @@ const axios = require("axios");
 if (!process.env.RESEND_API_KEY) {
   console.warn("⚠️  [orders.js] RESEND_API_KEY not found, setting it manually");
   process.env.RESEND_API_KEY = "re_bTfoC4Xs_7oYsAM31UHFbX7AsSgPnLDAg";
-  process.env.RESEND_FROM_EMAIL = "onboarding@resend.dev";
+  process.env.RESEND_FROM_EMAIL = "orders@ochachopharmacysupermarket.com";
 }
 
 // ✅ Import email functions
@@ -930,205 +930,65 @@ router.get("/:orderId", auth, async (req, res) => {
 });
 
 // POST /:orderId/cancel - Cancel order
-// router.post("/:orderId/cancel", auth, async (req, res) => {
-//   try {
-//     const { orderId } = req.params;
-//     const { reason } = req.body;
-//     const userId = req.user.id;
-
-//     const order = await Order.findOne({ _id: orderId, userId });
-
-//     if (!order) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Order not found",
-//       });
-//     }
-
-//     if (order.status === "delivered" || order.status === "cancelled") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "This order cannot be cancelled",
-//         currentStatus: order.status,
-//       });
-//     }
-
-//     // Restore stock
-//     console.log(`🔄 Restoring stock for cancelled order ${orderId}...`);
-//     for (const item of order.items) {
-//       const product = await Product.findById(item.productId);
-//       if (product) {
-//         await product.increaseStock(item.quantity);
-//         console.log(`  ✅ Restored ${product.name}`);
-//       }
-//     }
-
-//     order.status = "cancelled";
-//     order.cancellationReason = reason || "User requested cancellation";
-//     await order.save();
-
-//     console.log("✅ Order cancelled");
-
-//     // ✅ SEND CANCELLATION EMAIL (Non-blocking)
-//     sendOrderCancelledEmail({
-//       email: order.shippingInfo.email,
-//       fullName: order.shippingInfo.fullName,
-//       orderId: order.orderId,
-//       reason: order.cancellationReason,
-//     }).catch((error) => {
-//       console.error(
-//         "⚠️ Cancellation email failed (non-critical):",
-//         error.message
-//       );
-//     });
-
-//     res.json({
-//       success: true,
-//       message: "Order cancelled successfully",
-//       data: order,
-//     });
-//   } catch (error) {
-//     console.error("❌ Error cancelling order:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error cancelling order",
-//       error: error.message,
-//     });
-//   }
-// });
-
 router.post("/:orderId/cancel", auth, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
     const userId = req.user.id;
 
-    console.log(
-      `\n🔴 [cancel-order] User ${userId} requesting cancellation for order: ${orderId}`
-    );
-
-    // ✅ Find the order
     const order = await Order.findOne({ _id: orderId, userId });
 
     if (!order) {
-      console.error(`❌ Order not found: ${orderId}`);
       return res.status(404).json({
         success: false,
         message: "Order not found",
       });
     }
 
-    console.log(`📦 Order found: ${order.orderId}, Status: ${order.status}`);
-
-    // ✅ Check if order can be cancelled
-    if (order.status === "delivered") {
-      console.error(`❌ Cannot cancel delivered order: ${order.orderId}`);
+    if (order.status === "delivered" || order.status === "cancelled") {
       return res.status(400).json({
         success: false,
-        message:
-          "Delivered orders cannot be cancelled. Please contact support for returns.",
+        message: "This order cannot be cancelled",
         currentStatus: order.status,
       });
     }
 
-    if (order.status === "cancelled") {
-      console.error(`❌ Order already cancelled: ${order.orderId}`);
-      return res.status(400).json({
-        success: false,
-        message: "This order has already been cancelled",
-        currentStatus: order.status,
-      });
-    }
-
-    // ✅ Restore stock for all items
-    console.log(`🔄 Restoring stock for cancelled order ${order.orderId}...`);
-
+    // Restore stock
+    console.log(`🔄 Restoring stock for cancelled order ${orderId}...`);
     for (const item of order.items) {
-      try {
-        const product = await Product.findById(item.productId);
-
-        if (product) {
-          await product.increaseStock(item.quantity);
-          console.log(
-            `  ✅ Restored ${item.quantity}x ${product.name} (Stock: ${product.stock})`
-          );
-        } else {
-          console.warn(
-            `  ⚠️  Product not found: ${item.productId} - Skipping stock restoration`
-          );
-        }
-      } catch (stockError) {
-        console.error(
-          `  ❌ Error restoring stock for ${item.name}:`,
-          stockError.message
-        );
-        // Continue with other items even if one fails
+      const product = await Product.findById(item.productId);
+      if (product) {
+        await product.increaseStock(item.quantity);
+        console.log(`  ✅ Restored ${product.name}`);
       }
     }
 
-    // ✅ Update order status
-    const cancellationReason = reason || "User requested cancellation";
-
     order.status = "cancelled";
-    order.cancellationReason = cancellationReason;
-    order.cancelledAt = new Date();
-    order.updatedAt = new Date();
-
+    order.cancellationReason = reason || "User requested cancellation";
     await order.save();
 
-    console.log(`✅ Order ${order.orderId} cancelled successfully`);
-    console.log(`   Reason: ${cancellationReason}`);
+    console.log("✅ Order cancelled");
 
-    // ✅ Send cancellation confirmation email (Non-blocking)
-    console.log(
-      `📧 Sending cancellation email to: ${order.shippingInfo.email}`
-    );
-
+    // ✅ SEND CANCELLATION EMAIL (Non-blocking)
     sendOrderCancelledEmail({
       email: order.shippingInfo.email,
       fullName: order.shippingInfo.fullName,
       orderId: order.orderId,
-      reason: cancellationReason,
-    })
-      .then((result) => {
-        if (result.success) {
-          console.log(`✅ Cancellation email sent: ${result.messageId}`);
-        } else {
-          console.warn(
-            `⚠️  Cancellation email failed: ${result.message || result.error}`
-          );
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "⚠️  Cancellation email error (non-critical):",
-          error.message
-        );
-      });
+      reason: order.cancellationReason,
+    }).catch((error) => {
+      console.error(
+        "⚠️ Cancellation email failed (non-critical):",
+        error.message
+      );
+    });
 
-    // ✅ Return success response
     res.json({
       success: true,
       message: "Order cancelled successfully",
-      data: {
-        orderId: order.orderId,
-        _id: order._id,
-        status: order.status,
-        cancellationReason: order.cancellationReason,
-        cancelledAt: order.cancelledAt,
-        refundInfo:
-          order.paymentInfo.status === "paid"
-            ? "Refund will be processed within 5-7 business days"
-            : "No payment to refund",
-      },
+      data: order,
     });
-
-    console.log("✅ Cancellation complete\n");
   } catch (error) {
-    console.error("\n❌ ERROR IN CANCEL ORDER:");
-    console.error("Message:", error.message);
-    console.error("Stack:", error.stack);
-
+    console.error("❌ Error cancelling order:", error);
     res.status(500).json({
       success: false,
       message: "Error cancelling order",
