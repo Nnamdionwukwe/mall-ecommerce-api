@@ -6,6 +6,14 @@ const User = require("../models/User");
 const { auth, isAdmin } = require("../middleware/auth");
 const axios = require("axios");
 
+// 🔥 FORCE SET RESEND API KEY
+if (!process.env.RESEND_API_KEY) {
+  console.warn("⚠️  [orders.js] RESEND_API_KEY not found, setting it manually");
+  process.env.RESEND_API_KEY = "re_bTfoC4Xs_7oYsAM31UHFbX7AsSgPnLDAg";
+  process.env.RESEND_FROM_EMAIL =
+    "onboarding@resend.dev" || "orders@ochachopharmacysupermarket.com";
+}
+
 // ✅ Import email functions
 const {
   sendOrderConfirmationEmail,
@@ -929,10 +937,6 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     const { reason } = req.body;
     const userId = req.user.id;
 
-    console.log(
-      `\n🚫 [cancel-order] User ${userId} cancelling order: ${orderId}`
-    );
-
     const order = await Order.findOne({ _id: orderId, userId });
 
     if (!order) {
@@ -964,30 +968,20 @@ router.post("/:orderId/cancel", auth, async (req, res) => {
     order.cancellationReason = reason || "User requested cancellation";
     await order.save();
 
-    console.log("✅ Order cancelled, sending email...");
+    console.log("✅ Order cancelled");
 
-    // ✅ SEND CANCELLATION EMAIL (Non-blocking but with better error handling)
+    // ✅ SEND CANCELLATION EMAIL (Non-blocking)
     sendOrderCancelledEmail({
       email: order.shippingInfo.email,
       fullName: order.shippingInfo.fullName,
       orderId: order.orderId,
       reason: order.cancellationReason,
-    })
-      .then((result) => {
-        if (result.success) {
-          console.log(
-            `✅ Cancellation email sent successfully (${result.from})`
-          );
-        } else {
-          console.error(
-            "⚠️ Cancellation email failed:",
-            result.error || result.message
-          );
-        }
-      })
-      .catch((error) => {
-        console.error("⚠️ Cancellation email error:", error.message);
-      });
+    }).catch((error) => {
+      console.error(
+        "⚠️ Cancellation email failed (non-critical):",
+        error.message
+      );
+    });
 
     res.json({
       success: true,
