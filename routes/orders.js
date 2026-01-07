@@ -10,7 +10,7 @@ const axios = require("axios");
 if (!process.env.RESEND_API_KEY) {
   console.warn("⚠️  [orders.js] RESEND_API_KEY not found, setting it manually");
   process.env.RESEND_API_KEY = "re_bTfoC4Xs_7oYsAM31UHFbX7AsSgPnLDAg";
-  process.env.RESEND_FROM_EMAIL = "hello@ochachopharmacysupermarket.com";
+  process.env.RESEND_FROM_EMAIL = "orders@ochachopharmacysupermarket.com";
 }
 
 // ✅ Import email functions
